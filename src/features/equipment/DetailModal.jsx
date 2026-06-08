@@ -58,8 +58,10 @@ export function DetailModal({ item, onClose, onAdd, wishlist, onToggleWish, rent
           <h2 className="font-display font-bold text-3xl md:text-4xl leading-none mt-2">{item.name}</h2>
           <div className="mt-2 italic text-muted">{item.sub}</div>
 
-          <div className="aspect-[16/9] my-10 border border-line flex items-center justify-center bg-[#F7F7F7]">
-            <Ico.cam className="w-20 h-20 text-muted/40"/>
+          <div className="aspect-[16/9] my-10 border border-line flex items-center justify-center bg-[#F7F7F7] overflow-hidden">
+            {item.imageUrl
+              ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover"/>
+              : <Ico.cam className="w-20 h-20 text-muted/40"/>}
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">

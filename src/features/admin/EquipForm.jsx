@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Ico } from '../../components/Ico';
+import { ImageInput } from '../../components/ImageInput';
 import { CATEGORIES } from '../../data/defaults';
 
 export function EquipForm({ form: initial, onSave, onClose }) {
@@ -49,6 +50,19 @@ export function EquipForm({ form: initial, onSave, onClose }) {
               <label className="font-mono text-[11px] uppercase tracking-wider text-muted">재고 (대)</label>
               <input type="number" value={form.stock} onChange={e=>setForm({...form,stock:e.target.value})}
                 className="w-full border border-line focus:border-ink outline-none px-3 py-3 text-[14px] mt-1 bg-transparent" placeholder="3"/>
+            </div>
+          </div>
+          <div>
+            <label className="font-mono text-[11px] uppercase tracking-wider text-muted">장비 사진 (4:3 권장)</label>
+            <div className="flex gap-3 mt-1">
+              <div className="w-28 aspect-[4/3] border border-line overflow-hidden bg-[#F0F0F0] shrink-0 flex items-center justify-center">
+                {form.imageUrl
+                  ? <img src={form.imageUrl} alt="장비 사진" className="w-full h-full object-cover"/>
+                  : <Ico.cam className="w-7 h-7 text-muted/40"/>}
+              </div>
+              <div className="flex-1 min-w-0">
+                <ImageInput value={form.imageUrl || ''} onChange={v => setForm({ ...form, imageUrl: v })}/>
+              </div>
             </div>
           </div>
           <div>

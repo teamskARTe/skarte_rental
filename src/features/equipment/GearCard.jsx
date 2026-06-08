@@ -9,9 +9,11 @@ export function GearCard({ item, onClick }) {
       <div className="mb-10 md:mb-12">
         <span className="text-[14px] font-bold text-ink">{cat.label}</span>
       </div>
-      {/* 미니 그래픽 */}
-      <div className="aspect-[4/3] mb-8 border border-line flex items-center justify-center bg-[#F7F7F7]">
-        <Ico.cam className="w-12 h-12 text-muted/40"/>
+      {/* 장비 사진 (없으면 아이콘) */}
+      <div className="aspect-[4/3] mb-8 border border-line flex items-center justify-center bg-[#F7F7F7] overflow-hidden">
+        {item.imageUrl
+          ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover"/>
+          : <Ico.cam className="w-12 h-12 text-muted/40"/>}
       </div>
       <div className="flex items-baseline justify-between gap-4">
         <div className="font-display text-xl md:text-2xl leading-tight">{item.name}</div>

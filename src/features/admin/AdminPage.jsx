@@ -20,7 +20,7 @@ export function AdminPage({ equipment, setEquipment, orders, rentals, setRentals
   const [userQuery, setUserQuery] = useState('');
   const users = store.read('skeart_users', []).filter(u => u.email !== ADMIN_EMAIL);
 
-  const blank = { name:'', cat:'cam', sub:'', price:0, stock:1, specs:['','',''] };
+  const blank = { name:'', cat:'cam', sub:'', price:0, stock:1, imageUrl:'', specs:['','',''] };
   const startNew = () => setEditing({ ...blank, _new:true });
   const startEdit = (item) => setEditing({ ...item, specs:[...(item.specs || []), '', ''].slice(0,3) });
 
