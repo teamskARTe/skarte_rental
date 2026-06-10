@@ -10,8 +10,8 @@ export function Footer({ setPage }) {
         {/* 1단 — 회사 정보 */}
         <div>
           <div className="flex items-center gap-3 mb-6">
-            <img src={LOGO_WHITE} alt="Skarte" className="h-9 md:h-10 w-auto"/>
-            <span className="font-display font-bold text-3xl md:text-4xl leading-none">SKARTE</span>
+            <img src={LOGO_WHITE} alt="skARTe" className="h-9 md:h-10 w-auto"/>
+            <span className="font-display font-bold text-3xl md:text-4xl leading-none">skARTe</span>
           </div>
           <div className="space-y-2 text-[13px] leading-relaxed">
             <div><span className="text-bg/70 font-bold">회사명</span> &nbsp;스케아트</div>
@@ -65,7 +65,7 @@ export function Footer({ setPage }) {
       </div>
 
       <div className="max-w-[1400px] mx-auto mt-12 pt-6 border-t border-bg/15 flex justify-between font-mono text-[11px] text-bg/40 uppercase tracking-wider">
-        <span>© 2026 Skarte · Camera & Cinema Rental · Incheon</span>
+        <span>© 2026 skARTe · Camera & Cinema Rental · Incheon</span>
         <div className="flex items-center gap-4">
           <button onClick={() => setPage('admin')} className="hover:text-bg transition-colors">Admin</button>
           <span>v 0.1 · Beta</span>
