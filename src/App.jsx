@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Footer } from './components/Footer';
 import { Nav } from './components/Nav';
 import { EquipCtx, SiteCtx } from './context';
-import { ADMIN_EMAIL, ADMIN_PW, DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, seedRentals } from './data/defaults';
+import { ADMIN_EMAIL, ADMIN_PW, DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, seedRentals, DEFAULT_WORKS } from './data/defaults';
 import { AdminPage } from './features/admin/AdminPage';
 import { AuthModal } from './features/auth/AuthModal';
 import { MyPage } from './features/auth/MyPage';
@@ -14,6 +14,7 @@ import { GearPage } from './features/equipment/GearPage';
 import { sb, store } from './lib/supabase';
 import { GuidePage } from './pages/GuidePage';
 import { HomePage } from './pages/HomePage';
+import { ExtraGearPage } from './pages/ExtraGearPage';
 import { LocationPage } from './pages/LocationPage';
 
 export function App() {
@@ -41,6 +42,7 @@ export function App() {
   const [notices, setNotices] = useState(() => store.read('skeart_notices', DEFAULT_NOTICES));
   const [brands, setBrands] = useState(() => store.read('skeart_brands', DEFAULT_BRANDS));
   const [discounts, setDiscounts] = useState(() => store.read('skeart_discounts', DEFAULT_DISCOUNTS));
+  const [works, setWorks] = useState(() => store.read('skeart_works', DEFAULT_WORKS));
 
   // ── Supabase 클라우드 데이터 초기 로드 (설정 시) ──
   useEffect(() => {
@@ -57,6 +59,7 @@ export function App() {
       if (map.skeart_notices)         setNotices(map.skeart_notices);
       if (map.skeart_brands)          setBrands(map.skeart_brands);
       if (map.skeart_discounts)       setDiscounts(map.skeart_discounts);
+      if (map.skeart_works)           setWorks(map.skeart_works);
     });
   }, []);
 
@@ -91,6 +94,7 @@ export function App() {
   useEffect(() => { store.write('skeart_notices', notices); }, [notices]);
   useEffect(() => { store.write('skeart_brands', brands); }, [brands]);
   useEffect(() => { store.write('skeart_discounts', discounts); }, [discounts]);
+  useEffect(() => { store.write('skeart_works', works); }, [works]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
   // 세트는 EQUIPMENT에 없으므로 set_ 접두사도 유효 처리
@@ -146,13 +150,14 @@ export function App() {
 
   return (
     <EquipCtx.Provider value={equipment}>
-    <SiteCtx.Provider value={{ homeBanner, eventBanners, sets, bestIds, notices, brands, discounts }}>
+    <SiteCtx.Provider value={{ homeBanner, eventBanners, sets, bestIds, notices, brands, discounts, works }}>
       <Nav page={page} setPage={setPage} setCategory={setCategory} cartCount={cartCount}
         onCartOpen={openCart} user={user} onAuthOpen={() => setAuthOpen(true)} isAdmin={isAdmin}/>
       <main className="min-h-screen">
         {page === 'home'  && <HomePage setPage={setPage} setCategory={setCategory} onBrand={(q) => { setGearSearch(q); setCategory('all'); setPage('gear'); }}/>}
         {page === 'gear'  && <GearPage category={category} setCategory={setCategory} onItemClick={setSelectedItem} wishlist={wishlist} onToggleWish={toggleWish} query={gearSearch} setQuery={setGearSearch} rentals={rentals}/>}
         {page === 'guide' && <GuidePage setPage={setPage}/>}
+        {page === 'extra' && <ExtraGearPage setPage={setPage}/>}
         {page === 'location' && <LocationPage setPage={setPage}/>}
         {page === 'mypage' && (user
           ? <MyPage user={user} wishlist={wishlist} orders={orders} cart={cart}
@@ -167,6 +172,7 @@ export function App() {
               notices={notices} setNotices={setNotices}
               brands={brands} setBrands={setBrands}
               discounts={discounts} setDiscounts={setDiscounts}
+              works={works} setWorks={setWorks}
               onExit={() => setPage('home')}/>
           : <RequireLogin onAuthOpen={() => setAuthOpen(true)}/>)}
       </main>

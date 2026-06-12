@@ -44,6 +44,7 @@ export function Footer({ setPage }) {
             <button onClick={() => setPage('home')} className="text-bg/45 hover:text-bg underline-grow">회사 소개</button>
             <button onClick={() => setPage('guide')} className="text-bg/45 hover:text-bg underline-grow">이용 가이드</button>
             <button onClick={() => setPage('location')} className="text-bg/45 hover:text-bg underline-grow">지점 안내</button>
+            <button onClick={() => setPage('extra')} className="text-bg/45 hover:text-bg underline-grow">추가 장비 요청</button>
           </div>
         </div>
 

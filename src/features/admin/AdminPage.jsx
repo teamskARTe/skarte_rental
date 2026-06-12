@@ -6,11 +6,12 @@ import { EquipDetailModal } from './EquipDetailModal';
 import { EquipForm } from './EquipForm';
 import { RentalCalendar } from '../rentals/RentalCalendar';
 import { priceLabel, won } from '../../lib/format';
+import { youtubeId } from '../content/WorksSection';
 import { store } from '../../lib/supabase';
 
 export function AdminPage({ equipment, setEquipment, orders, rentals, setRentals,
   homeBanner, setHomeBanner, eventBanners, setEventBanners, sets, setSets, bestIds, setBestIds,
-  notices, setNotices, brands, setBrands, discounts, setDiscounts, onExit }) {
+  notices, setNotices, brands, setBrands, discounts, setDiscounts, works, setWorks, onExit }) {
   const [tab, setTab] = useState('dash');
   const [editing, setEditing] = useState(null); // null | 'new' | item
   const [viewing, setViewing] = useState(null); // 상세/캘린더 보기 장비
@@ -57,6 +58,7 @@ export function AdminPage({ equipment, setEquipment, orders, rentals, setRentals
     { id:'home',  label:'홈 배너' },
     { id:'event', label:`이벤트 배너 · ${eventBanners.length}` },
     { id:'brand', label:`제조사 · ${brands.length}` },
+    { id:'works', label:`촬영 영상 · ${works.length}` },
     { id:'notice', label:`팝업 공지 · ${notices.length}` },
   ];
 
@@ -578,6 +580,64 @@ export function AdminPage({ equipment, setEquipment, orders, rentals, setRentals
               );
             })}
             {discounts.length === 0 && <div className="border border-line py-12 text-center text-muted text-[14px]">등록된 할인 이벤트가 없습니다.</div>}
+          </div>
+        </div>
+      )}
+
+      {/* ── 촬영 영상(WORKS) 관리 ── */}
+      {tab==='works' && (
+        <div>
+          <div className="flex justify-between items-center mb-5">
+            <p className="text-[14px] text-muted">홈 화면 "스케아트 장비 촬영 영상" 섹션입니다. 유튜브 링크와 설명을 넣으면 영상을 누를 때 좌측 영상·우측 설명 팝업이 떠요.</p>
+            <button onClick={() => setWorks(prev => [...prev, { id:'wk_'+Date.now().toString().slice(-6), youtubeId:'', title:'', gear:'', desc:'' }])}
+              className="text-[13px] bg-ink text-bg px-4 py-2 hover-lift inline-flex items-center gap-2 shrink-0"><Ico.plus className="w-3.5 h-3.5"/> 영상 추가</button>
+          </div>
+          <div className="space-y-4">
+            {works.map((w, i) => {
+              const upd = (patch) => setWorks(prev => prev.map((x,idx) => idx===i ? { ...x, ...patch } : x));
+              const vid = youtubeId(w.youtubeId);
+              return (
+                <div key={w.id} className="border border-line p-4 flex flex-col md:flex-row gap-4">
+                  {/* 썸네일 미리보기 */}
+                  <div className="w-full md:w-48 aspect-video border border-line overflow-hidden bg-[#F0F0F0] shrink-0 flex items-center justify-center">
+                    {vid
+                      ? <img src={`https://img.youtube.com/vi/${vid}/hqdefault.jpg`} alt="썸네일" className="w-full h-full object-cover"/>
+                      : <span className="text-[12px] text-muted">미리보기</span>}
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div>
+                      <label className="text-[12px] text-muted block mb-1">유튜브 링크 또는 영상 ID</label>
+                      <input value={w.youtubeId} onChange={e => upd({ youtubeId:e.target.value })} placeholder="https://youtu.be/xxxxxxxxxxx"
+                        className="w-full border border-line focus:border-ink outline-none px-2 py-2 text-[13px] bg-transparent"/>
+                    </div>
+                    <div>
+                      <label className="text-[12px] text-muted block mb-1">제목</label>
+                      <input value={w.title} onChange={e => upd({ title:e.target.value })} placeholder="예) OO 브랜드 필름"
+                        className="w-full border border-line focus:border-ink outline-none px-2 py-2 text-[14px] bg-transparent"/>
+                    </div>
+                    <div>
+                      <label className="text-[12px] text-muted block mb-1">사용 장비 (선택)</label>
+                      <input value={w.gear} onChange={e => upd({ gear:e.target.value })} placeholder="예) FX9 + 2470GM2 + 난라이트 200s"
+                        className="w-full border border-line focus:border-ink outline-none px-2 py-2 text-[13px] bg-transparent"/>
+                    </div>
+                    <div>
+                      <label className="text-[12px] text-muted block mb-1">설명 (선택)</label>
+                      <textarea value={w.desc} onChange={e => upd({ desc:e.target.value })} rows={2} placeholder="영상 소개, 촬영 정보 등"
+                        className="w-full border border-line focus:border-ink outline-none px-2 py-2 text-[13px] bg-transparent resize-none"/>
+                    </div>
+                  </div>
+                  <div className="flex md:flex-col gap-1 shrink-0">
+                    <button onClick={() => i>0 && setWorks(prev => { const a=[...prev]; [a[i-1],a[i]]=[a[i],a[i-1]]; return a; })}
+                      disabled={i===0} className="text-[12px] border border-line hover:border-ink px-2 py-1 disabled:opacity-30">↑</button>
+                    <button onClick={() => i<works.length-1 && setWorks(prev => { const a=[...prev]; [a[i+1],a[i]]=[a[i],a[i+1]]; return a; })}
+                      disabled={i===works.length-1} className="text-[12px] border border-line hover:border-ink px-2 py-1 disabled:opacity-30">↓</button>
+                    <button onClick={() => setWorks(prev => prev.filter((_,idx)=>idx!==i))}
+                      className="text-muted hover:text-ink p-1"><Ico.trash className="w-4 h-4"/></button>
+                  </div>
+                </div>
+              );
+            })}
+            {works.length === 0 && <div className="border border-line py-12 text-center text-muted text-[14px]">등록된 촬영 영상이 없습니다.</div>}
           </div>
         </div>
       )}

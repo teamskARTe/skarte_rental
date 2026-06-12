@@ -1,5 +1,5 @@
 import { createContext } from 'react';
-import { DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS } from './data/defaults';
+import { DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, DEFAULT_WORKS } from './data/defaults';
 
 export const EquipCtx = createContext(DEFAULT_EQUIPMENT);
 
@@ -11,4 +11,5 @@ export const SiteCtx = createContext({
   notices: DEFAULT_NOTICES,
   brands: DEFAULT_BRANDS,
   discounts: DEFAULT_DISCOUNTS,
+  works: DEFAULT_WORKS,
 });

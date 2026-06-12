@@ -162,3 +162,7 @@ export function seedRentals() {
     { id:'r6', gearId:'lens2', qty:1, renter:'김감독', start:d(22), days:2 },
   ];
 }
+
+// 스케아트 장비 촬영 영상 (WORKS). { id, youtubeId, title, desc, gear }
+// youtubeId: 유튜브 영상 ID (https://youtu.be/[여기] 또는 watch?v=[여기])
+export const DEFAULT_WORKS = [];
