@@ -7,12 +7,12 @@ export function LocationPage({ setPage }) {
       <div className="font-mono text-[12px] uppercase tracking-[0.2em] text-muted mb-3">— 지점 안내</div>
       <h1 className="font-display font-bold text-4xl md:text-6xl leading-none mb-4">지점 정보</h1>
       <p className="text-muted text-[15px] max-w-xl mb-12">
-        <span className="text-ink font-bold">인천 거점</span>의 스케아트 스튜디오. 수도권 서부 촬영팀에게 가장 가까운 장비 픽업 포인트입니다.
+        <span className="text-ink font-bold">인천 거점</span>의 스케아트 렌탈 스튜디오. 수도권 서부 촬영팀에게 가장 가까운 장비 픽업 포인트입니다.
       </p>
 
       {/* 지도 임베드 */}
       <div className="border border-ink mb-px aspect-[16/10] md:aspect-[16/7] overflow-hidden bg-[#F7F7F7]">
-        <iframe title="스케아트 위치 — 인하드림센터"
+        <iframe title="스케아트 렌탈 위치 — 인하드림센터"
           src="https://maps.google.com/maps?q=37.4486858,126.6562488&z=16&hl=ko&output=embed"
           className="w-full h-full" style={{border:0}} loading="lazy" referrerPolicy="no-referrer-when-downgrade"/>
       </div>
@@ -33,7 +33,7 @@ export function LocationPage({ setPage }) {
 
       {/* 길찾기 버튼 */}
       <div className="flex flex-wrap gap-2 mb-16">
-        <a href="https://map.kakao.com/link/to/스케아트 인하드림센터,37.4486858,126.6562488" target="_blank" rel="noopener noreferrer"
+        <a href="https://map.kakao.com/link/to/스케아트 렌탈 인하드림센터,37.4486858,126.6562488" target="_blank" rel="noopener noreferrer"
           className="border border-ink px-5 py-3 text-[13px] tracking-tight hover-lift inline-flex items-center gap-2">
           카카오맵 길찾기 <Ico.arrow className="w-3.5 h-3.5"/>
         </a>
@@ -62,15 +62,36 @@ export function LocationPage({ setPage }) {
         ))}
       </div>
 
+      {/* 주차 요금 안내 */}
+      <div className="border border-line p-6 md:p-8 mb-16">
+        <div className="font-display text-xl md:text-2xl mb-1">학교 주차 요금</div>
+        <p className="text-[13px] text-muted mb-5">인하대학교 주차장 이용 시 아래 요금이 적용됩니다.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line mb-4">
+          {[
+            { t:'최초 15분', v:'무료' },
+            { t:'~30분', v:'2,000원' },
+            { t:'30분 초과', v:'10분당 500원' },
+            { t:'1일 최대', v:'30,000원' },
+          ].map(p => (
+            <div key={p.t} className="bg-bg p-4">
+              <div className="font-mono text-[12px] text-muted mb-1">{p.t}</div>
+              <div className="font-display text-lg leading-none">{p.v}</div>
+            </div>
+          ))}
+        </div>
+        <div className="bg-ink text-bg p-4 text-[14px]">
+          💡 <span className="font-bold">10만원 이상 대여</span> 시 주차비를 <span className="font-bold">차량 1대 · 1시간</span>까지 지원해 드립니다.
+        </div>
+      </div>
+
       {/* 커버리지 */}
       <div className="font-mono text-[12px] uppercase tracking-[0.2em] text-muted mb-3">— 서비스 권역</div>
       <h2 className="font-display font-bold text-3xl md:text-4xl leading-none mb-8">서비스 권역</h2>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-line mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-px bg-line mb-4">
         {[
           { k:'인천', d:'방문 수령 최적' },
           { k:'부천·김포', d:'당일 픽업 권장' },
-          { k:'서울 서남부', d:'방문·택배 모두' },
-          { k:'전국', d:'택배 발송 가능' },
+          { k:'서울 서남부', d:'방문 수령 가능' },
         ].map(c => (
           <div key={c.k} className="bg-bg p-5 md:p-6">
             <div className="font-display text-lg md:text-xl leading-none mb-1.5">{c.k}</div>
@@ -78,7 +99,7 @@ export function LocationPage({ setPage }) {
           </div>
         ))}
       </div>
-      <p className="text-[13px] text-muted mb-16">* 인천공항 인접 거점으로, 입국·로케이션 촬영팀의 장비 수급에도 대응합니다.</p>
+      <p className="text-[13px] text-muted mb-16">* 모든 장비는 방문 수령·반납으로 진행됩니다. 무인 렌탈로 원하시는 시간에 픽업·반납하실 수 있어요.</p>
 
       {/* CTA */}
       <div className="border border-ink p-8 md:p-12 flex flex-col md:flex-row md:items-center justify-between gap-6">

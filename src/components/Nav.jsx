@@ -14,8 +14,8 @@ export function Nav({ page, setPage, setCategory, cartCount, onCartOpen, user, o
     <nav className="fixed top-0 left-0 right-0 z-40 border-b border-line backdrop-blur-md" style={{background:'rgba(255,255,255,0.85)'}}>
       <div className="max-w-[1400px] mx-auto px-6 md:px-10 h-16 flex items-center justify-between">
         <button onClick={() => setPage('home')} className="flex items-center gap-2.5 shrink-0">
-          <img src={LOGO_BLACK} alt="skARTe" className="h-7 md:h-8 w-auto"/>
-          <span className="hidden sm:inline font-display text-xl md:text-2xl tracking-tight leading-none">skARTe</span>
+          <img src={LOGO_BLACK} alt="skARTe Rental" className="h-7 md:h-8 w-auto"/>
+          <span className="hidden sm:inline font-display text-xl md:text-2xl tracking-tight leading-none">skARTe Rental</span>
         </button>
         <div className="hidden md:flex items-center gap-8 text-[13px] tracking-tight">
           <button onClick={() => setPage('home')}

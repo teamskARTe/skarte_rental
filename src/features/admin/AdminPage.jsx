@@ -7,11 +7,10 @@ import { EquipForm } from './EquipForm';
 import { RentalCalendar } from '../rentals/RentalCalendar';
 import { priceLabel, won } from '../../lib/format';
 import { youtubeId } from '../content/WorksSection';
-import { store } from '../../lib/supabase';
 
 export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOrderStatus, rentals, setRentals,
   homeBanner, setHomeBanner, eventBanners, setEventBanners, sets, setSets, bestIds, setBestIds,
-  notices, setNotices, brands, setBrands, discounts, setDiscounts, works, setWorks, onExit }) {
+  notices, setNotices, brands, setBrands, discounts, setDiscounts, works, setWorks, users: usersProp, onExit }) {
   const [tab, setTab] = useState('dash');
   const [editing, setEditing] = useState(null); // null | 'new' | item
   const [viewing, setViewing] = useState(null); // 상세/캘린더 보기 장비
@@ -20,7 +19,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const [orderQuery, setOrderQuery] = useState('');
   const [orderFilter, setOrderFilter] = useState('all');
   const [userQuery, setUserQuery] = useState('');
-  const users = store.read('skeart_users', []).filter(u => u.email !== ADMIN_EMAIL);
+  const users = (usersProp || []).filter(u => u.email !== ADMIN_EMAIL);
 
   // ── 콘텐츠 임시(draft) 상태: 저장 버튼을 눌러야 실제 반영 ──
   const [draft, setDraft] = useState({ homeBanner, eventBanners, brands, works, discounts, notices, sets, bestIds });

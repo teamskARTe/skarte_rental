@@ -44,6 +44,7 @@ export function App() {
   const [brands, setBrands] = useState(() => store.read('skeart_brands', DEFAULT_BRANDS));
   const [discounts, setDiscounts] = useState(() => store.read('skeart_discounts', DEFAULT_DISCOUNTS));
   const [works, setWorks] = useState(() => store.read('skeart_works', DEFAULT_WORKS));
+  const [users, setUsers] = useState(() => store.read('skeart_users', []));
 
   // ── Supabase 클라우드 데이터 초기 로드 (설정 시) ──
   useEffect(() => {
@@ -61,15 +62,15 @@ export function App() {
       if (map.skeart_brands)          setBrands(map.skeart_brands);
       if (map.skeart_discounts)       setDiscounts(map.skeart_discounts);
       if (map.skeart_works)           setWorks(map.skeart_works);
+      if (map.skeart_users)           setUsers(map.skeart_users);
     });
   }, []);
 
   // 관리자 계정 seed (데모)
   useEffect(() => {
-    const users = store.read('skeart_users', []);
-    if (!users.find(u => u.email === ADMIN_EMAIL)) {
-      store.write('skeart_users', [...users, { name:'관리자', email:ADMIN_EMAIL, pw:ADMIN_PW, joinedAt:new Date().toISOString().slice(0,10) }]);
-    }
+    setUsers(prev => prev.find(u => u.email === ADMIN_EMAIL)
+      ? prev
+      : [...prev, { name:'관리자', email:ADMIN_EMAIL, pw:ADMIN_PW, joinedAt:new Date().toISOString().slice(0,10) }]);
   }, []);
 
   const isAdmin = user && user.email === ADMIN_EMAIL;
@@ -96,6 +97,7 @@ export function App() {
   useEffect(() => { store.write('skeart_brands', brands); }, [brands]);
   useEffect(() => { store.write('skeart_discounts', discounts); }, [discounts]);
   useEffect(() => { store.write('skeart_works', works); }, [works]);
+  useEffect(() => { store.write('skeart_users', users); }, [users]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
   // 세트는 EQUIPMENT에 없으므로 set_ 접두사도 유효 처리
@@ -115,18 +117,23 @@ export function App() {
   const clearCart = () => setCart([]);
 
   // ── 인증 (데모) ──
-  const signup = ({ name, email, pw }) => {
-    const users = store.read('skeart_users', []);
-    if (users.find(u => u.email === email.toLowerCase())) return '이미 가입된 이메일입니다.';
-    const u = { name: name.trim(), email: email.toLowerCase(), pw, joinedAt: new Date().toISOString().slice(0,10) };
-    store.write('skeart_users', [...users, u]);
+  const signup = async ({ name, email, pw }) => {
+    const em = email.toLowerCase();
+    // 클라우드 연동 시 최신 회원 목록 조회 (다른 기기 가입 반영)
+    let current = users;
+    if (sb) { const fresh = await store.cloudReadKey('skeart_users'); if (fresh) current = fresh; }
+    if (current.find(u => u.email === em)) return '이미 가입된 이메일입니다.';
+    const u = { name: name.trim(), email: em, pw, joinedAt: new Date().toISOString().slice(0,10) };
+    setUsers([...current, u]);
     const sess = { name: u.name, email: u.email, joinedAt: u.joinedAt };
     setUser(sess); setAuthOpen(false); showToast(`${u.name}님, 환영합니다!`);
     return true;
   };
-  const login = (email, pw) => {
-    const users = store.read('skeart_users', []);
-    const u = users.find(x => x.email === email.toLowerCase());
+  const login = async (email, pw) => {
+    const em = email.toLowerCase();
+    let current = users;
+    if (sb) { const fresh = await store.cloudReadKey('skeart_users'); if (fresh) { current = fresh; setUsers(fresh); } }
+    const u = current.find(x => x.email === em);
     if (!u) return '가입되지 않은 이메일입니다.';
     if (u.pw !== pw) return '비밀번호가 일치하지 않습니다.';
     const sess = { name: u.name, email: u.email, joinedAt: u.joinedAt };
@@ -215,6 +222,7 @@ export function App() {
           : <RequireLogin onAuthOpen={() => setAuthOpen(true)}/>)}
         {page === 'admin' && (isAdmin
           ? <AdminPage equipment={equipment} setEquipment={setEquipment} orders={orders} setOrders={setOrders} updateOrderStatus={updateOrderStatus} rentals={rentals} setRentals={setRentals}
+              users={users}
               homeBanner={homeBanner} setHomeBanner={setHomeBanner}
               eventBanners={eventBanners} setEventBanners={setEventBanners}
               sets={sets} setSets={setSets} bestIds={bestIds} setBestIds={setBestIds}

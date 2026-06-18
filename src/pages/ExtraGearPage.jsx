@@ -80,7 +80,7 @@ export function ExtraGearPage({ setPage, onRecordOrder }) {
       </div>
       <h1 className="font-display font-bold text-4xl md:text-5xl leading-none mb-4">추가 장비 요청</h1>
       <p className="text-[14px] text-muted leading-relaxed mb-10">
-        대여하려 했지만 스케아트에 없어서 빌리지 못한 장비가 있다면 남겨주세요.
+        대여하려 했지만 스케아트 렌탈에 없어서 빌리지 못한 장비가 있다면 남겨주세요.
         접수된 요청은 신규 입고 검토와 장비 구성 업데이트에 참고합니다.
       </p>
 

@@ -25,6 +25,9 @@ create policy "site_data_public_write" on site_data
 create policy "site_data_public_update" on site_data
   for update using (true);
 
+create policy "site_data_public_delete" on site_data
+  for delete using (true);
+
 -- ═══════════════════════════════════════════════════
 -- ⚠️ 중요 주의사항
 --

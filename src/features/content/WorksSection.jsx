@@ -29,7 +29,7 @@ export function WorksSection() {
         <div>
           <div className="font-mono text-[12px] uppercase tracking-[0.2em] text-muted mb-2">— WORKS</div>
           <h2 className="font-display font-bold text-3xl md:text-5xl leading-none">스케아트 장비 촬영 영상</h2>
-          <p className="text-[13px] text-muted mt-2">스케아트 장비로 촬영한 결과물입니다. 영상을 누르면 자세히 볼 수 있어요.</p>
+          <p className="text-[13px] text-muted mt-2">스케아트 렌탈 장비로 촬영한 결과물입니다. 영상을 누르면 자세히 볼 수 있어요.</p>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-line">

@@ -13,16 +13,16 @@ export function AuthModal({ onClose, onLogin, onSignup }) {
     return () => { document.removeEventListener('keydown', esc); document.body.style.overflow = ''; };
   }, []);
 
-  const submit = () => {
+  const submit = async () => {
     setErr('');
     if (mode === 'signup') {
       if (!form.name.trim()) return setErr('이름을 입력해 주세요.');
       if (!/^[^@]+@[^@]+\.[^@]+$/.test(form.email)) return setErr('올바른 이메일을 입력해 주세요.');
       if (form.pw.length < 4) return setErr('비밀번호는 4자 이상이어야 합니다.');
-      const r = onSignup(form);
+      const r = await onSignup(form);
       if (r !== true) return setErr(r);
     } else {
-      const r = onLogin(form.email, form.pw);
+      const r = await onLogin(form.email, form.pw);
       if (r !== true) return setErr(r);
     }
   };
@@ -36,7 +36,7 @@ export function AuthModal({ onClose, onLogin, onSignup }) {
         </div>
         <div className="px-6 md:px-8 py-8">
           <h2 className="font-display font-bold text-3xl md:text-4xl leading-none mb-1">{mode==='login' ? '로그인' : '회원가입'}</h2>
-          <p className="text-[13px] text-muted mb-6">{mode==='login' ? '스케아트 계정으로 로그인하세요.' : '몇 초면 가입할 수 있어요.'}</p>
+          <p className="text-[13px] text-muted mb-6">{mode==='login' ? '스케아트 렌탈 계정으로 로그인하세요.' : '몇 초면 가입할 수 있어요.'}</p>
 
           <div className="space-y-3">
             {mode==='signup' && (
