@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Footer } from './components/Footer';
 import { Nav } from './components/Nav';
 import { EquipCtx, SiteCtx } from './context';
-import { ADMIN_EMAIL, ADMIN_PW, DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, seedRentals, DEFAULT_WORKS } from './data/defaults';
+import { ADMIN_EMAIL, DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, seedRentals, DEFAULT_WORKS } from './data/defaults';
 import { AdminPage } from './features/admin/AdminPage';
 import { AuthModal } from './features/auth/AuthModal';
 import { MyPage } from './features/auth/MyPage';
@@ -66,13 +66,6 @@ export function App() {
     });
   }, []);
 
-  // 관리자 계정 seed (데모)
-  useEffect(() => {
-    setUsers(prev => prev.find(u => u.email === ADMIN_EMAIL)
-      ? prev
-      : [...prev, { name:'관리자', email:ADMIN_EMAIL, pw:ADMIN_PW, joinedAt:new Date().toISOString().slice(0,10) }]);
-  }, []);
-
   const isAdmin = user && user.email === ADMIN_EMAIL;
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [page]);
@@ -119,6 +112,7 @@ export function App() {
   // ── 인증 (데모) ──
   const signup = async ({ name, email, pw }) => {
     const em = email.toLowerCase();
+    if (em === ADMIN_EMAIL.toLowerCase()) return '이미 가입된 이메일입니다.';
     // 클라우드 연동 시 최신 회원 목록 조회 (다른 기기 가입 반영)
     let current = users;
     if (sb) { const fresh = await store.cloudReadKey('skeart_users'); if (fresh) current = fresh; }

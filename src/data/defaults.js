@@ -134,9 +134,8 @@ export const DEFAULT_DISCOUNTS = [
   { id:'dc_local10',   label:'인천 지역 10% 할인',      type:'percent', value:10, min:60000, active:true },
 ];
 
+// 관리자 권한 판별용 이메일. 실제 비밀번호는 Supabase(site_data의 skeart_users)에서 관리됩니다.
 export const ADMIN_EMAIL = 'skartefilm@naver.com';
-
-export const ADMIN_PW = '1234';
 
 export const RENTAL_COLORS = ['#E0DAC8','#CFE0D6','#E0CFD8','#CEDAE2','#E5DAC9','#D6DCC9','#D5D8E4','#E2D3CB'];
 
