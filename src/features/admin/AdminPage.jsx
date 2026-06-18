@@ -681,7 +681,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
       )}
 
       {/* ── 촬영 영상(WORKS) 관리 ── */}
-      {tab==='dWorks' && (
+      {tab==='works' && (
         <div>
           <div className="flex justify-between items-center mb-5">
             <p className="text-[14px] text-muted">홈 화면 "스케아트 장비 촬영 영상" 섹션입니다. 유튜브 링크와 설명을 넣으면 영상을 누를 때 좌측 영상·우측 설명 팝업이 떠요. <span className="text-ink">아래 "변경사항 저장"을 눌러야 반영</span>됩니다.</p>
