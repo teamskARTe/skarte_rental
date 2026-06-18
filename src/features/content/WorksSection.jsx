@@ -49,13 +49,13 @@ export function WorksSection() {
               </div>
               <div className="p-5">
                 <div className="font-display text-lg leading-tight line-clamp-1">{w.title || '제목 없음'}</div>
+                {w.desc && <p className="text-[13px] text-muted leading-relaxed mt-2 line-clamp-2">{w.desc}</p>}
                 {w.gear && (
                   <div className="mt-2.5 flex items-center gap-1.5 min-w-0">
                     <span className="font-mono text-[10px] uppercase tracking-wider text-muted bg-[#F0F0F0] px-1.5 py-1 shrink-0">사용 장비</span>
                     <span className="text-[13px] text-muted leading-snug truncate">{w.gear}</span>
                   </div>
                 )}
-                {w.desc && <p className="text-[13px] text-muted leading-relaxed mt-2 line-clamp-2">{w.desc}</p>}
               </div>
             </button>
           );
@@ -100,16 +100,16 @@ function WorkModal({ work, onClose }) {
           </button>
           <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted mb-3">WORKS</div>
           <h3 className="font-display font-bold text-2xl md:text-3xl leading-tight mb-4 pr-8">{work.title || '제목 없음'}</h3>
-          {work.gear && (
-            <div className="mb-4">
-              <div className="font-mono text-[11px] uppercase tracking-wider text-muted mb-1.5">사용 장비</div>
-              <div className="text-[14px] leading-relaxed">{work.gear}</div>
-            </div>
-          )}
           {work.desc && (
-            <div>
+            <div className="mb-4">
               <div className="font-mono text-[11px] uppercase tracking-wider text-muted mb-1.5">설명</div>
               <p className="text-[14px] text-muted leading-relaxed whitespace-pre-line">{work.desc}</p>
+            </div>
+          )}
+          {work.gear && (
+            <div>
+              <div className="font-mono text-[11px] uppercase tracking-wider text-muted mb-1.5">사용 장비</div>
+              <div className="text-[14px] leading-relaxed">{work.gear}</div>
             </div>
           )}
           <a href={`https://youtu.be/${id}`} target="_blank" rel="noreferrer"
