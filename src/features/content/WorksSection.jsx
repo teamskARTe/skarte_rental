@@ -48,13 +48,14 @@ export function WorksSection() {
                 </div>
               </div>
               <div className="p-5">
-                <div className="font-display text-lg leading-tight">{w.title || '제목 없음'}</div>
+                <div className="font-display text-lg leading-tight line-clamp-1">{w.title || '제목 없음'}</div>
                 {w.gear && (
-                  <div className="mt-2 flex items-start gap-1.5">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted bg-[#F0F0F0] px-1.5 py-0.5 shrink-0 mt-0.5">사용 장비</span>
-                    <span className="text-[13px] text-muted leading-snug">{w.gear}</span>
+                  <div className="mt-2.5 flex items-center gap-1.5 min-w-0">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted bg-[#F0F0F0] px-1.5 py-1 shrink-0">사용 장비</span>
+                    <span className="text-[13px] text-muted leading-snug truncate">{w.gear}</span>
                   </div>
                 )}
+                {w.desc && <p className="text-[13px] text-muted leading-relaxed mt-2 line-clamp-2">{w.desc}</p>}
               </div>
             </button>
           );
