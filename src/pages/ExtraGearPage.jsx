@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Ico } from '../components/Ico';
-import { openKakao } from '../lib/format';
 
 export function ExtraGearPage({ setPage, onRecordOrder }) {
   const [gear, setGear] = useState('');
@@ -11,23 +10,13 @@ export function ExtraGearPage({ setPage, onRecordOrder }) {
   const [copied, setCopied] = useState(false);
 
   const submit = () => {
-    if (!gear.trim()) return;
+    if (!gear.trim() || !name.trim() || !contact.trim()) return;
     let refNo = null;
     if (onRecordOrder) {
       const saved = onRecordOrder({ type:'extra', gear, situation, name, contact });
       if (saved && saved.refNo) refNo = saved.refNo;
     }
     setDone({ refNo });
-  };
-
-  const openChannel = () => {
-    const msg = `[추가 장비 요청]\n\n`
-      + (done?.refNo ? `접수번호 · #${done.refNo}\n` : '')
-      + (name ? `성함 · ${name}\n` : '')
-      + (contact ? `연락처 · ${contact}\n` : '')
-      + `필요한 장비 · ${gear}\n`
-      + (situation ? `필요했던 상황 · ${situation}\n` : '');
-    openKakao(msg);
   };
 
   const copyRef = () => {
@@ -37,7 +26,7 @@ export function ExtraGearPage({ setPage, onRecordOrder }) {
     }).catch(() => {});
   };
 
-  // ── 접수 완료 화면 (A) ──
+  // ── 접수 완료 화면 ──
   if (done) {
     return (
       <section className="pt-28 md:pt-36 px-6 md:px-10 max-w-[600px] mx-auto pb-24 text-center">
@@ -46,8 +35,8 @@ export function ExtraGearPage({ setPage, onRecordOrder }) {
         </div>
         <h1 className="font-display font-bold text-3xl md:text-4xl leading-tight mb-3">요청이 접수되었어요</h1>
         <p className="text-[14px] text-muted leading-relaxed mb-8">
-          아래 접수번호를 카카오톡 채널에 보내주시면 빠르게 확인해 드려요.<br/>
-          접수번호는 "내 문의 조회"에서 연락처로도 다시 확인할 수 있어요.
+          신규 입고 검토 후 입력하신 연락처로 안내드릴게요.<br/>
+          접수번호는 "내 문의 조회"에서 연락처로 다시 확인할 수 있어요.
         </p>
 
         {done.refNo && (
@@ -60,10 +49,10 @@ export function ExtraGearPage({ setPage, onRecordOrder }) {
           </div>
         )}
 
-        <button onClick={openChannel} className="w-full bg-kakao text-ink py-4 inline-flex items-center justify-center gap-2 hover-lift mb-3">
-          <Ico.chat className="w-4 h-4"/> 카카오톡 채널로 접수번호 보내기
-        </button>
-        <button onClick={() => setPage('home')} className="text-[13px] text-muted hover:text-ink">홈으로 돌아가기</button>
+        <div className="flex flex-col sm:flex-row gap-2 justify-center">
+          <button onClick={() => setPage('lookup')} className="border border-ink px-5 py-3 text-[13px] hover-lift">내 문의 조회</button>
+          <button onClick={() => setPage('home')} className="border border-line hover:border-ink px-5 py-3 text-[13px] text-muted hover:text-ink">홈으로 돌아가기</button>
+        </div>
       </section>
     );
   }
