@@ -1,10 +1,11 @@
 import { useState, useEffect, useContext } from 'react';
 import { Ico } from '../../components/Ico';
-import { EquipCtx, SiteCtx } from '../../context';
-import { CATEGORIES, EQUIPMENT } from '../../data/defaults';
+import { EquipCtx, SiteCtx, CategoriesCtx } from '../../context';
+import { EQUIPMENT } from '../../data/defaults';
 import { openKakao, won } from '../../lib/format';
 
 export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecordOrder, user, onAuthOpen }) {
+  const CATEGORIES = useContext(CategoriesCtx);
   const EQUIPMENT = useContext(EquipCtx);
   const { sets } = useContext(SiteCtx);
   useEffect(() => {

@@ -1,11 +1,12 @@
 import { useState, useMemo, useContext } from 'react';
 import { Ico } from '../../components/Ico';
-import { EquipCtx, SiteCtx } from '../../context';
-import { CATEGORIES, EQUIPMENT } from '../../data/defaults';
+import { EquipCtx, SiteCtx, CategoriesCtx } from '../../context';
+import { EQUIPMENT } from '../../data/defaults';
 import { EventBanner } from '../content/EventBanner';
 import { priceLabel, won } from '../../lib/format';
 
 export function GearPage({ category, setCategory, onItemClick, wishlist, onToggleWish, query, setQuery, rentals }) {
+  const CATEGORIES = useContext(CategoriesCtx);
   const EQUIPMENT = useContext(EquipCtx);
   const { sets } = useContext(SiteCtx);
   const [sort, setSort] = useState('default');

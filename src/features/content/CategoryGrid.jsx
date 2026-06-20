@@ -1,9 +1,10 @@
 import { useMemo, useContext } from 'react';
 import { Ico } from '../../components/Ico';
-import { EquipCtx } from '../../context';
-import { CATEGORIES, EQUIPMENT } from '../../data/defaults';
+import { EquipCtx, CategoriesCtx } from '../../context';
+import { EQUIPMENT } from '../../data/defaults';
 
 export function CategoryGrid({ setPage, setCategory }) {
+  const CATEGORIES = useContext(CategoriesCtx);
   const EQUIPMENT = useContext(EquipCtx);
   const counts = useMemo(() => {
     const c = {}; EQUIPMENT.forEach(e => c[e.cat] = (c[e.cat]||0) + 1); return c;

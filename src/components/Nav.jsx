@@ -1,10 +1,11 @@
 import { useState, useContext } from 'react';
 import { LOGO_BLACK } from '../assets/logo';
 import { Ico } from './Ico';
-import { EquipCtx } from '../context';
-import { CATEGORIES, EQUIPMENT } from '../data/defaults';
+import { EquipCtx, CategoriesCtx } from '../context';
+import { EQUIPMENT } from '../data/defaults';
 
 export function Nav({ page, setPage, setCategory, cartCount, onCartOpen, user, onAuthOpen, isAdmin }) {
+  const CATEGORIES = useContext(CategoriesCtx);
   const EQUIPMENT = useContext(EquipCtx);
   const [gearMenu, setGearMenu] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);

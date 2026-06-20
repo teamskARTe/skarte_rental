@@ -1,11 +1,12 @@
 import { useState, useContext } from 'react';
 import { Empty } from '../../components/Empty';
 import { Ico } from '../../components/Ico';
-import { EquipCtx } from '../../context';
-import { CATEGORIES, EQUIPMENT } from '../../data/defaults';
+import { EquipCtx, CategoriesCtx } from '../../context';
+import { EQUIPMENT } from '../../data/defaults';
 import { calcPrice, priceLabel, won } from '../../lib/format';
 
 export function MyPage({ user, wishlist, orders, cart, onLogout, onItemClick, onToggleWish, onOpenCart, setPage, setCategory }) {
+  const CATEGORIES = useContext(CategoriesCtx);
   const EQUIPMENT = useContext(EquipCtx);
   const [tab, setTab] = useState('orders');
   const wishItems = wishlist.map(id => EQUIPMENT.find(e => e.id===id)).filter(Boolean);

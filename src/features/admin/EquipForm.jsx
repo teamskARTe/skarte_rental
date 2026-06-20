@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
+import { CategoriesCtx } from '../../context';
 import { Ico } from '../../components/Ico';
 import { ImageInput } from '../../components/ImageInput';
-import { CATEGORIES } from '../../data/defaults';
 
 export function EquipForm({ form: initial, onSave, onClose }) {
+  const CATEGORIES = useContext(CategoriesCtx);
   const [form, setForm] = useState(initial);
   useEffect(() => {
     const esc = (e) => e.key === 'Escape' && onClose();

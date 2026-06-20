@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Ico } from '../../components/Ico';
 import { ImageInput } from '../../components/ImageInput';
-import { ADMIN_EMAIL, CATEGORIES, DEFAULT_EQUIPMENT } from '../../data/defaults';
+import { ADMIN_EMAIL, DEFAULT_EQUIPMENT } from '../../data/defaults';
 import { EquipDetailModal } from './EquipDetailModal';
 import { EquipForm } from './EquipForm';
 import { RentalCalendar } from '../rentals/RentalCalendar';
@@ -10,7 +10,8 @@ import { youtubeId } from '../content/WorksSection';
 
 export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOrderStatus, rentals, setRentals,
   homeBanner, setHomeBanner, eventBanners, setEventBanners, sets, setSets, bestIds, setBestIds,
-  notices, setNotices, brands, setBrands, discounts, setDiscounts, works, setWorks, users: usersProp, onExit }) {
+  notices, setNotices, brands, setBrands, discounts, setDiscounts, works, setWorks, users: usersProp, categories, setCategories, onExit }) {
+  const CATEGORIES = categories;
   const [tab, setTab] = useState('dash');
   const [editing, setEditing] = useState(null); // null | 'new' | item
   const [viewing, setViewing] = useState(null); // 상세/캘린더 보기 장비
@@ -86,6 +87,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const tabs = [
     { id:'dash',  label:'대시보드' },
     { id:'gear',  label:`장비 관리 · ${equipment.length}` },
+    { id:'category', label:`카테고리 · ${(categories||[]).length}` },
     { id:'order', label:`문의 관리 · ${orders.length}${orders.filter(o=>(o.status||'pending')==='pending').length ? ` (대기 ${orders.filter(o=>(o.status||'pending')==='pending').length})` : ''}` },
     { id:'user',  label:`회원 · ${users.length}` },
     { id:'set',   label:`세트 상품 · ${dSets.length}` },
@@ -206,6 +208,77 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
               <div className="px-4 py-12 text-center text-muted text-[14px]">{gearQuery ? '검색 결과가 없습니다.' : '이 카테고리에 등록된 장비가 없습니다.'}</div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* 카테고리 관리 */}
+      {tab==='category' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[13px] text-muted">장비 분류 카테고리를 관리합니다. 순서 변경·이름 수정·추가·삭제가 가능해요.</p>
+            <button onClick={() => {
+              const newId = 'cat_' + Date.now().toString().slice(-6);
+              const nextCode = String((categories || []).length + 1).padStart(2, '0');
+              setCategories([...(categories || []), { id: newId, label: '새 카테고리', en: '', code: nextCode }]);
+            }} className="text-[13px] bg-ink text-bg px-4 py-2 hover-lift shrink-0 inline-flex items-center gap-1.5">
+              <Ico.plus className="w-3.5 h-3.5"/> 카테고리 추가
+            </button>
+          </div>
+
+          {(categories || []).length === 0 ? (
+            <div className="border border-line py-16 text-center text-muted text-[14px]">카테고리가 없습니다. 추가해 주세요.</div>
+          ) : (
+            <div className="space-y-2">
+              {(categories || []).map((c, idx) => {
+                const count = equipment.filter(e => e.cat === c.id).length;
+                return (
+                  <div key={c.id} className="border border-line p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                    {/* 순서 */}
+                    <div className="flex sm:flex-col gap-1 shrink-0">
+                      <button onClick={() => {
+                        if (idx === 0) return;
+                        const arr = [...categories]; [arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]]; setCategories(arr);
+                      }} disabled={idx===0} className="w-7 h-7 border border-line hover:border-ink disabled:opacity-30 text-[11px]">▲</button>
+                      <button onClick={() => {
+                        if (idx === categories.length-1) return;
+                        const arr = [...categories]; [arr[idx+1], arr[idx]] = [arr[idx], arr[idx+1]]; setCategories(arr);
+                      }} disabled={idx===categories.length-1} className="w-7 h-7 border border-line hover:border-ink disabled:opacity-30 text-[11px]">▼</button>
+                    </div>
+                    {/* 코드 */}
+                    <div className="shrink-0">
+                      <label className="font-mono text-[10px] text-muted block mb-1">코드</label>
+                      <input value={c.code || ''} onChange={e => {
+                        const arr = [...categories]; arr[idx] = { ...c, code: e.target.value }; setCategories(arr);
+                      }} className="w-14 border border-line focus:border-ink outline-none px-2 py-1.5 text-[13px] bg-transparent font-mono"/>
+                    </div>
+                    {/* 이름(한글) */}
+                    <div className="flex-1 min-w-0">
+                      <label className="font-mono text-[10px] text-muted block mb-1">이름 (한글)</label>
+                      <input value={c.label || ''} onChange={e => {
+                        const arr = [...categories]; arr[idx] = { ...c, label: e.target.value }; setCategories(arr);
+                      }} className="w-full border border-line focus:border-ink outline-none px-2 py-1.5 text-[13px] bg-transparent"/>
+                    </div>
+                    {/* 영문 */}
+                    <div className="flex-1 min-w-0">
+                      <label className="font-mono text-[10px] text-muted block mb-1">영문 (선택)</label>
+                      <input value={c.en || ''} onChange={e => {
+                        const arr = [...categories]; arr[idx] = { ...c, en: e.target.value }; setCategories(arr);
+                      }} placeholder="Cameras" className="w-full border border-line focus:border-ink outline-none px-2 py-1.5 text-[13px] bg-transparent"/>
+                    </div>
+                    {/* 장비 수 + 삭제 */}
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="font-mono text-[12px] text-muted whitespace-nowrap">{count}종</span>
+                      <button onClick={() => {
+                        if (count > 0) { alert(`이 카테고리에 장비 ${count}개가 있어요. 먼저 장비를 다른 카테고리로 옮기거나 삭제해 주세요.`); return; }
+                        if (confirm(`'${c.label}' 카테고리를 삭제할까요?`)) setCategories(categories.filter(x => x.id !== c.id));
+                      }} className="text-muted hover:text-red-500 p-1.5"><Ico.trash className="w-4 h-4"/></button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <p className="text-[12px] text-muted mt-4">※ 장비가 들어있는 카테고리는 삭제할 수 없어요. 변경 즉시 저장되며 사이트 전체에 반영됩니다.</p>
         </div>
       )}
 

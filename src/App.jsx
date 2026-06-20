@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Footer } from './components/Footer';
 import { Nav } from './components/Nav';
-import { EquipCtx, SiteCtx } from './context';
-import { ADMIN_EMAIL, DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, seedRentals, DEFAULT_WORKS } from './data/defaults';
+import { EquipCtx, SiteCtx, CategoriesCtx } from './context';
+import { ADMIN_EMAIL, CATEGORIES, DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, seedRentals, DEFAULT_WORKS } from './data/defaults';
 import { AdminPage } from './features/admin/AdminPage';
 import { AuthModal } from './features/auth/AuthModal';
 import { MyPage } from './features/auth/MyPage';
@@ -44,6 +44,7 @@ export function App() {
   const [brands, setBrands] = useState(() => store.read('skeart_brands', DEFAULT_BRANDS));
   const [discounts, setDiscounts] = useState(() => store.read('skeart_discounts', DEFAULT_DISCOUNTS));
   const [works, setWorks] = useState(() => store.read('skeart_works', DEFAULT_WORKS));
+  const [categories, setCategories] = useState(() => store.read('skeart_categories', CATEGORIES));
   const [users, setUsers] = useState(() => store.read('skeart_users', []));
 
   // ── Supabase 클라우드 데이터 초기 로드 (설정 시) ──
@@ -62,6 +63,7 @@ export function App() {
       if (map.skeart_brands)          setBrands(map.skeart_brands);
       if (map.skeart_discounts)       setDiscounts(map.skeart_discounts);
       if (map.skeart_works)           setWorks(map.skeart_works);
+      if (map.skeart_categories)      setCategories(map.skeart_categories);
       if (map.skeart_users)           setUsers(map.skeart_users);
     });
   }, []);
@@ -90,6 +92,7 @@ export function App() {
   useEffect(() => { store.write('skeart_brands', brands); }, [brands]);
   useEffect(() => { store.write('skeart_discounts', discounts); }, [discounts]);
   useEffect(() => { store.write('skeart_works', works); }, [works]);
+  useEffect(() => { store.write('skeart_categories', categories); }, [categories]);
   useEffect(() => { store.write('skeart_users', users); }, [users]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
@@ -199,6 +202,7 @@ export function App() {
 
   return (
     <EquipCtx.Provider value={equipment}>
+    <CategoriesCtx.Provider value={categories}>
     <SiteCtx.Provider value={{ homeBanner, eventBanners, sets, bestIds, notices, brands, discounts, works }}>
       <Nav page={page} setPage={setPage} setCategory={setCategory} cartCount={cartCount}
         onCartOpen={openCart} user={user} onAuthOpen={() => setAuthOpen(true)} isAdmin={isAdmin}/>
@@ -216,7 +220,7 @@ export function App() {
           : <RequireLogin onAuthOpen={() => setAuthOpen(true)}/>)}
         {page === 'admin' && (isAdmin
           ? <AdminPage equipment={equipment} setEquipment={setEquipment} orders={orders} setOrders={setOrders} updateOrderStatus={updateOrderStatus} rentals={rentals} setRentals={setRentals}
-              users={users}
+              users={users} categories={categories} setCategories={setCategories}
               homeBanner={homeBanner} setHomeBanner={setHomeBanner}
               eventBanners={eventBanners} setEventBanners={setEventBanners}
               sets={sets} setSets={setSets} bestIds={bestIds} setBestIds={setBestIds}
@@ -238,6 +242,7 @@ export function App() {
         </div>
       )}
     </SiteCtx.Provider>
+    </CategoriesCtx.Provider>
     </EquipCtx.Provider>
   );
 }

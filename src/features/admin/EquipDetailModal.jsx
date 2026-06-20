@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
+import { CategoriesCtx } from '../../context';
 import { Ico } from '../../components/Ico';
-import { CATEGORIES } from '../../data/defaults';
 import { RentalCalendar } from '../rentals/RentalCalendar';
 import { won } from '../../lib/format';
 
@@ -13,6 +13,7 @@ export function EquipDetailModal({ item, rentals, equipment, onAdd, onRemove, on
     return () => { document.removeEventListener('keydown', esc); document.body.style.overflow = ''; };
   }, []);
 
+  const CATEGORIES = useContext(CategoriesCtx);
   const cat = CATEGORIES.find(c => c.id === item.cat);
   const itemRentals = rentals.filter(r => r.gearId === item.id);
   const todayStr = new Date().toISOString().slice(0,10);

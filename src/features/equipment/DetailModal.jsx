@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useContext } from 'react';
+import { CategoriesCtx } from '../../context';
 import { Ico } from '../../components/Ico';
-import { CATEGORIES } from '../../data/defaults';
 import { RentalCalendar } from '../rentals/RentalCalendar';
 import { priceLabel, won } from '../../lib/format';
 
@@ -33,6 +33,7 @@ export function DetailModal({ item, onClose, onAdd, wishlist, onToggleWish, rent
   }, [item, rentals, chkStart, chkDays]);
 
   if (!item) return null;
+  const CATEGORIES = useContext(CategoriesCtx);
   const cat = CATEGORIES.find(c => c.id === item.cat) || { label: item.isSet ? '세트 상품' : '기타', en:'', code:'' };
   const chkEnd = (() => {
     const e = new Date(chkStart); e.setDate(e.getDate() + Math.max(1, chkDays) - 1);

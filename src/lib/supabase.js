@@ -32,7 +32,7 @@ export const CLOUD_KEYS = [
   'skeart_equipment_v2', 'skeart_rentals_v2', 'skeart_orders',
   'skeart_homebanner_v2', 'skeart_eventbanners_v2', 'skeart_sets',
   'skeart_bestids', 'skeart_notices', 'skeart_brands', 'skeart_discounts',
-  'skeart_works', 'skeart_users',
+  'skeart_works', 'skeart_users', 'skeart_categories',
 ];
 
 let CLOUD_READY = !sb;

@@ -1,7 +1,8 @@
 import { createContext } from 'react';
-import { DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, DEFAULT_WORKS } from './data/defaults';
+import { CATEGORIES, DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, DEFAULT_WORKS } from './data/defaults';
 
 export const EquipCtx = createContext(DEFAULT_EQUIPMENT);
+export const CategoriesCtx = createContext(CATEGORIES);
 
 export const SiteCtx = createContext({
   homeBanner: DEFAULT_HOME_BANNER,

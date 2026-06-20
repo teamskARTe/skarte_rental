@@ -1,8 +1,10 @@
+import { useContext } from 'react';
+import { CategoriesCtx } from '../../context';
 import { Ico } from '../../components/Ico';
-import { CATEGORIES } from '../../data/defaults';
 import { priceLabel } from '../../lib/format';
 
 export function GearCard({ item, onClick }) {
+  const CATEGORIES = useContext(CategoriesCtx);
   const cat = CATEGORIES.find(c => c.id === item.cat);
   return (
     <button onClick={onClick} className="group bg-bg p-6 md:p-8 text-left hover-lift invert-hover relative">
