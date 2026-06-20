@@ -74,7 +74,7 @@ export function AuthModal({ onClose, onLogin, onSignup }) {
             </button>
           </div>
           <p className="mt-6 text-[11px] text-muted/70 text-center leading-relaxed border-t border-line pt-4">
-            * 데모용 계정입니다. 정보는 이 브라우저에만 저장되며 실제 인증·보안은 적용되지 않습니다.
+            * 입력하신 정보는 안전하게 보관되며, 로그인 후 위시리스트·주문 내역을 이용할 수 있어요.
           </p>
         </div>
       </div>

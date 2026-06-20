@@ -12,6 +12,7 @@ import { NoticePopup } from './features/content/NoticePopup';
 import { DetailModal } from './features/equipment/DetailModal';
 import { GearPage } from './features/equipment/GearPage';
 import { sb, store } from './lib/supabase';
+import { hashPassword, verifyPassword, isLegacyPlain } from './lib/auth';
 import { GuidePage } from './pages/GuidePage';
 import { HomePage } from './pages/HomePage';
 import { ExtraGearPage } from './pages/ExtraGearPage';
@@ -112,15 +113,15 @@ export function App() {
   const removeFromCart = (id) => setCart(prev => prev.filter(c => c.id !== id));
   const clearCart = () => setCart([]);
 
-  // ── 인증 (데모) ──
+  // ── 인증 (비밀번호 해싱 + Supabase 저장) ──
   const signup = async ({ name, email, pw }) => {
     const em = email.toLowerCase();
     if (em === ADMIN_EMAIL.toLowerCase()) return '이미 가입된 이메일입니다.';
-    // 클라우드 연동 시 최신 회원 목록 조회 (다른 기기 가입 반영)
     let current = users;
     if (sb) { const fresh = await store.cloudReadKey('skeart_users'); if (fresh) current = fresh; }
     if (current.find(u => u.email === em)) return '이미 가입된 이메일입니다.';
-    const u = { name: name.trim(), email: em, pw, joinedAt: new Date().toISOString().slice(0,10) };
+    const hashed = await hashPassword(pw);
+    const u = { name: name.trim(), email: em, pw: hashed, joinedAt: new Date().toISOString().slice(0,10) };
     setUsers([...current, u]);
     const sess = { name: u.name, email: u.email, joinedAt: u.joinedAt };
     setUser(sess); setAuthOpen(false); showToast(`${u.name}님, 환영합니다!`);
@@ -132,7 +133,13 @@ export function App() {
     if (sb) { const fresh = await store.cloudReadKey('skeart_users'); if (fresh) { current = fresh; setUsers(fresh); } }
     const u = current.find(x => x.email === em);
     if (!u) return '가입되지 않은 이메일입니다.';
-    if (u.pw !== pw) return '비밀번호가 일치하지 않습니다.';
+    const ok = await verifyPassword(pw, u.pw);
+    if (!ok) return '비밀번호가 일치하지 않습니다.';
+    // 기존 평문 비밀번호면 로그인 성공 시 해시로 업그레이드
+    if (isLegacyPlain(u.pw)) {
+      const hashed = await hashPassword(pw);
+      setUsers(current.map(x => x.email === em ? { ...x, pw: hashed } : x));
+    }
     const sess = { name: u.name, email: u.email, joinedAt: u.joinedAt };
     setUser(sess); setAuthOpen(false); showToast(`${u.name}님, 다시 오셨네요!`);
     return true;

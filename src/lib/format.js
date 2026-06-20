@@ -2,7 +2,7 @@ export const won = (n) => '₩' + n.toLocaleString('ko-KR');
 
 export const priceLabel = (n) => n > 0 ? won(n) : '문의 필요';
 
-// ─── 데모 인증/저장 헬퍼 (localStorage, 보안 X — 프로토타입용) ───
+// ─── 저장 헬퍼 (Supabase 클라우드 + localStorage 폴백) ───
 /* ═══════════════ Supabase 연동 설정 ═══════════════
    1) supabase.com 에서 프로젝트 생성
    2) 함께 제공된 supabase-setup.sql 을 SQL Editor에서 실행
