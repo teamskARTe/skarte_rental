@@ -100,7 +100,7 @@ export function Nav({ page, setPage, setCategory, cartCount, onCartOpen, user, o
 
       {/* 모바일 펼침 메뉴 */}
       {mobileMenu && (
-        <div className="md:hidden border-t border-line bg-bg fade-in">
+        <div className="md:hidden border-t border-line bg-bg fade-in overflow-y-auto" style={{ maxHeight: 'calc(100vh - 4rem)' }}>
           <button onClick={() => goPage('home')}
             className={`w-full text-left px-6 py-4 border-b border-line text-[15px] ${page==='home'?'font-bold':'text-muted'}`}>홈</button>
           <button onClick={() => goCat('all')}
