@@ -35,15 +35,18 @@ export const CLOUD_KEYS = [
   'skeart_works', 'skeart_users', 'skeart_categories',
 ];
 
-let CLOUD_READY = !sb;
+
 
 export const store = {
   read(key, fallback) { try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; } catch (e) { return fallback; } },
   write(key, val) {
     try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
-    if (sb && CLOUD_READY && CLOUD_KEYS.includes(key)) {
+    if (sb && CLOUD_KEYS.includes(key)) {
       sb.from('site_data').upsert({ key, value: val, updated_at: new Date().toISOString() })
-        .then(({ error }) => { if (error) console.warn('Supabase 저장 실패:', key, error.message); });
+        .then(({ error }) => {
+          if (error) console.warn('[SKARTE] Supabase 저장 실패:', key, error.message);
+          else console.info('[SKARTE] Supabase 저장됨:', key);
+        });
     }
   },
   // 단일 키를 클라우드에서 최신값으로 조회 (회원 중복확인·로그인용)
@@ -57,11 +60,11 @@ export const store = {
   async cloudLoad() {
     if (!sb) return null;
     const { data, error } = await sb.from('site_data').select('key,value');
-    if (error) { console.warn('Supabase 로드 실패:', error.message); CLOUD_READY = true; return null; }
+    if (error) { console.warn('Supabase 로드 실패:', error.message); return null; }
     const map = {};
     (data || []).forEach(r => { map[r.key] = r.value; });
     Object.entries(map).forEach(([k, v]) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} });
-    CLOUD_READY = true;
+   
     console.info(`[SKARTE] Supabase에서 ${Object.keys(map).length}개 데이터 로드 완료`);
     return map;
   },

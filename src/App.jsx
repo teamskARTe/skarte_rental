@@ -29,6 +29,7 @@ export function App() {
   const page = PATH_TO_PAGE[location.pathname] || 'home';
   const setPage = (p) => { navigate(PAGE_TO_PATH[p] || '/'); window.scrollTo(0, 0); };
   const [category, setCategory] = useState('all');
+  const [loaded, setLoaded] = useState(false);
   const [gearSearch, setGearSearch] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [cart, setCart] = useState(() => store.read('skeart_cart', []));
@@ -57,22 +58,24 @@ export function App() {
 
   // ── Supabase 클라우드 데이터 초기 로드 (설정 시) ──
   useEffect(() => {
-    if (!sb) return;
+    if (!sb) { setLoaded(true); return; }
     store.cloudLoad().then(map => {
-      if (!map) return;
-      if (map.skeart_equipment_v2)    setEquipment(map.skeart_equipment_v2);
-      if (map.skeart_rentals_v2)      setRentals(map.skeart_rentals_v2);
-      if (map.skeart_orders)          setOrders(map.skeart_orders);
-      if (map.skeart_homebanner_v2)   setHomeBanner(map.skeart_homebanner_v2);
-      if (map.skeart_eventbanners_v2) setEventBanners(map.skeart_eventbanners_v2);
-      if (map.skeart_sets)            setSets(map.skeart_sets);
-      if (map.skeart_bestids)         setBestIds(map.skeart_bestids);
-      if (map.skeart_notices)         setNotices(map.skeart_notices);
-      if (map.skeart_brands)          setBrands(map.skeart_brands);
-      if (map.skeart_discounts)       setDiscounts(map.skeart_discounts);
-      if (map.skeart_works)           setWorks(map.skeart_works);
-      if (map.skeart_categories)      setCategories(map.skeart_categories);
-      if (map.skeart_users)           setUsers(map.skeart_users);
+      if (map) {
+        if (map.skeart_equipment_v2)    setEquipment(map.skeart_equipment_v2);
+        if (map.skeart_rentals_v2)      setRentals(map.skeart_rentals_v2);
+        if (map.skeart_orders)          setOrders(map.skeart_orders);
+        if (map.skeart_homebanner_v2)   setHomeBanner(map.skeart_homebanner_v2);
+        if (map.skeart_eventbanners_v2) setEventBanners(map.skeart_eventbanners_v2);
+        if (map.skeart_sets)            setSets(map.skeart_sets);
+        if (map.skeart_bestids)         setBestIds(map.skeart_bestids);
+        if (map.skeart_notices)         setNotices(map.skeart_notices);
+        if (map.skeart_brands)          setBrands(map.skeart_brands);
+        if (map.skeart_discounts)       setDiscounts(map.skeart_discounts);
+        if (map.skeart_works)           setWorks(map.skeart_works);
+        if (map.skeart_categories)      setCategories(map.skeart_categories);
+        if (map.skeart_users)           setUsers(map.skeart_users);
+      }
+      setLoaded(true);  // 로드 완료 후에만 저장(write) 허용
     });
   }, []);
 
@@ -88,20 +91,20 @@ export function App() {
   }, [equipment]);
   useEffect(() => { store.write('skeart_cart', cart); }, [cart]);
   useEffect(() => { store.write('skeart_wishlist', wishlist); }, [wishlist]);
-  useEffect(() => { store.write('skeart_orders', orders); }, [orders]);
+  useEffect(() => { if (loaded) store.write('skeart_orders', orders); }, [orders, loaded]);
   useEffect(() => { store.write('skeart_session', user); }, [user]);
-  useEffect(() => { store.write('skeart_equipment_v2', equipment); }, [equipment]);
-  useEffect(() => { store.write('skeart_rentals_v2', rentals); }, [rentals]);
-  useEffect(() => { store.write('skeart_homebanner_v2', homeBanner); }, [homeBanner]);
-  useEffect(() => { store.write('skeart_eventbanners_v2', eventBanners); }, [eventBanners]);
-  useEffect(() => { store.write('skeart_sets', sets); }, [sets]);
-  useEffect(() => { store.write('skeart_bestids', bestIds); }, [bestIds]);
-  useEffect(() => { store.write('skeart_notices', notices); }, [notices]);
-  useEffect(() => { store.write('skeart_brands', brands); }, [brands]);
-  useEffect(() => { store.write('skeart_discounts', discounts); }, [discounts]);
-  useEffect(() => { store.write('skeart_works', works); }, [works]);
-  useEffect(() => { store.write('skeart_categories', categories); }, [categories]);
-  useEffect(() => { store.write('skeart_users', users); }, [users]);
+  useEffect(() => { if (loaded) store.write('skeart_equipment_v2', equipment); }, [equipment, loaded]);
+  useEffect(() => { if (loaded) store.write('skeart_rentals_v2', rentals); }, [rentals, loaded]);
+  useEffect(() => { if (loaded) store.write('skeart_homebanner_v2', homeBanner); }, [homeBanner, loaded]);
+  useEffect(() => { if (loaded) store.write('skeart_eventbanners_v2', eventBanners); }, [eventBanners, loaded]);
+  useEffect(() => { if (loaded) store.write('skeart_sets', sets); }, [sets, loaded]);
+  useEffect(() => { if (loaded) store.write('skeart_bestids', bestIds); }, [bestIds, loaded]);
+  useEffect(() => { if (loaded) store.write('skeart_notices', notices); }, [notices, loaded]);
+  useEffect(() => { if (loaded) store.write('skeart_brands', brands); }, [brands, loaded]);
+  useEffect(() => { if (loaded) store.write('skeart_discounts', discounts); }, [discounts, loaded]);
+  useEffect(() => { if (loaded) store.write('skeart_works', works); }, [works, loaded]);
+  useEffect(() => { if (loaded) store.write('skeart_categories', categories); }, [categories, loaded]);
+  useEffect(() => { if (loaded) store.write('skeart_users', users); }, [users, loaded]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
   // 세트는 EQUIPMENT에 없으므로 set_ 접두사도 유효 처리
