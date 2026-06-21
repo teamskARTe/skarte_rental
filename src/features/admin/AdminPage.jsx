@@ -68,6 +68,8 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
       name: form.name.trim(), cat: form.cat, sub: form.sub.trim(),
       price: Math.max(0, parseInt(form.price)||0), stock: Math.max(0, parseInt(form.stock)||0),
       specs: form.specs.map(s=>s.trim()).filter(Boolean),
+      imageUrl: form.imageUrl || '',
+      bookable: form.bookable !== false,
     };
     if (!clean.name) return;
     if (form._new) {
