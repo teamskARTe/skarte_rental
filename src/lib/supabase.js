@@ -66,3 +66,37 @@ export const store = {
     return map;
   },
 };
+
+// ─── 이미지 업로드 (Supabase Storage) ───
+// 버킷 이름: 'equipment-images' (Supabase에서 public 버킷으로 생성 필요)
+const BUCKET = 'equipment-images';
+
+// File을 Storage에 업로드하고 public URL 반환. 실패 시 null.
+export async function uploadImage(file) {
+  if (!sb) throw new Error('Supabase가 연결되지 않았습니다.');
+  // 파일명: 타임스탬프 + 랜덤 + 확장자 (한글/공백 제거)
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+  const path = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await sb.storage.from(BUCKET).upload(path, file, {
+    cacheControl: '31536000',   // 1년 캐싱 → egress 절약
+    upsert: false,
+    contentType: file.type || 'image/jpeg',
+  });
+  if (error) throw new Error(error.message);
+  const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// Blob(canvas 압축 결과)을 업로드. ImageInput에서 압축 후 사용.
+export async function uploadBlob(blob, ext = 'jpg') {
+  if (!sb) throw new Error('Supabase가 연결되지 않았습니다.');
+  const path = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await sb.storage.from(BUCKET).upload(path, blob, {
+    cacheControl: '31536000',
+    upsert: false,
+    contentType: blob.type || 'image/jpeg',
+  });
+  if (error) throw new Error(error.message);
+  const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}

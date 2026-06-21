@@ -1,5 +1,35 @@
 import { useState, useRef } from 'react';
 import { Ico } from './Ico';
+import { sb, uploadBlob } from '../lib/supabase';
+
+// 압축해서 Blob 반환 (Storage 업로드용)
+export function fileToCompressedBlob(file, maxW = 1600, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) { reject(new Error('이미지 파일이 아닙니다.')); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxW) { height = Math.round(height * maxW / width); width = maxW; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const isPng = file.type === 'image/png';
+        canvas.toBlob(
+          (blob) => blob ? resolve({ blob, ext: isPng ? 'png' : 'jpg' }) : reject(new Error('압축 실패')),
+          isPng ? 'image/png' : 'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = () => reject(new Error('이미지를 읽을 수 없습니다.'));
+      img.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error('파일을 읽을 수 없습니다.'));
+    reader.readAsDataURL(file);
+  });
+}
 
 export function fileToCompressedDataUrl(file, maxW = 1600, quality = 0.82) {
   return new Promise((resolve, reject) => {
@@ -37,8 +67,16 @@ export function ImageInput({ value, onChange, placeholder = 'https://...', label
     if (!file) return;
     setErr(''); setBusy(true);
     try {
-      const dataUrl = await fileToCompressedDataUrl(file);
-      onChange(dataUrl);
+      if (sb) {
+        // Supabase 연결됨 → 압축 후 Storage 업로드, URL만 저장
+        const { blob, ext } = await fileToCompressedBlob(file);
+        const url = await uploadBlob(blob, ext);
+        onChange(url);
+      } else {
+        // 미연결(로컬 테스트) → base64 폴백
+        const dataUrl = await fileToCompressedDataUrl(file);
+        onChange(dataUrl);
+      }
     } catch (er) {
       setErr(er.message || '업로드 실패');
     } finally { setBusy(false); }
