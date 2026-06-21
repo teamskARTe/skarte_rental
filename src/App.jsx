@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Footer } from './components/Footer';
 import { Nav } from './components/Nav';
 import { EquipCtx, SiteCtx, CategoriesCtx } from './context';
@@ -20,7 +21,13 @@ import { LookupPage } from './pages/LookupPage';
 import { LocationPage } from './pages/LocationPage';
 
 export function App() {
-  const [page, setPage] = useState('home');
+  const navigate = useNavigate();
+  const location = useLocation();
+  // URL ↔ page 매핑
+  const PATH_TO_PAGE = { '/': 'home', '/gear': 'gear', '/guide': 'guide', '/extra': 'extra', '/lookup': 'lookup', '/location': 'location', '/mypage': 'mypage', '/admin': 'admin' };
+  const PAGE_TO_PATH = { home: '/', gear: '/gear', guide: '/guide', extra: '/extra', lookup: '/lookup', location: '/location', mypage: '/mypage', admin: '/admin' };
+  const page = PATH_TO_PAGE[location.pathname] || 'home';
+  const setPage = (p) => { navigate(PAGE_TO_PATH[p] || '/'); window.scrollTo(0, 0); };
   const [category, setCategory] = useState('all');
   const [gearSearch, setGearSearch] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
