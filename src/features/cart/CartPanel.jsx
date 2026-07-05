@@ -158,10 +158,11 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
             <p className="text-[13px] text-muted">장비 페이지에서 원하는 품목을 담아보세요.</p>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+          <>
+          <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-y-auto lg:overflow-hidden scrollbar-hide">
             {/* ── 장비 목록 (선택) ── */}
-            <div className="flex flex-col min-h-0 flex-1 lg:border-r border-line" style={{ minHeight: '0' }}>
-              <div className="px-6 md:px-8 pt-5 pb-3 shrink-0 border-b border-line">
+            <div className="flex flex-col lg:min-h-0 flex-1 lg:border-r border-line">
+              <div className="px-6 md:px-8 pt-5 pb-3 shrink-0 border-b border-line bg-bg sticky top-0 z-10 lg:static">
                 <button onClick={toggleAll} className="w-full flex items-center gap-2.5 text-left">
                   <span className={`w-5 h-5 border flex items-center justify-center shrink-0 ${allSelected ? 'bg-ink border-ink' : 'border-line'}`}>
                     {allSelected && <Ico.check className="w-3.5 h-3.5 text-bg"/>}
@@ -169,7 +170,7 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                   <span className="text-[14px] tracking-tight">전체 선택 <span className="text-muted">({selected.length}/{items.length})</span></span>
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto px-6 md:px-8 py-4 scrollbar-hide">
+              <div className="lg:flex-1 lg:overflow-y-auto px-6 md:px-8 py-4 scrollbar-hide">
               <div className="space-y-5">
               {items.map((i, idx) => {
                 const sub = calc(i.gear.price, i.days) * i.qty;
@@ -251,8 +252,8 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
             </div>
 
             {/* ── 쿠폰 + 결제 요약 ── */}
-            <div className="shrink-0 lg:w-80 lg:shrink-0 flex flex-col min-h-0 border-t lg:border-t-0 border-line bg-[#FAFAFA]">
-              <div className="px-6 md:px-8 pt-5 pb-4 lg:flex-1 max-h-[26vh] lg:max-h-none overflow-y-auto scrollbar-hide">
+            <div className="shrink-0 lg:w-80 lg:shrink-0 flex flex-col lg:min-h-0 border-t lg:border-t-0 border-line bg-[#FAFAFA]">
+              <div className="px-6 md:px-8 pt-5 pb-4 lg:flex-1 lg:overflow-y-auto scrollbar-hide">
                 {/* 쿠폰 */}
                 <div className="hidden lg:block font-mono text-[11px] uppercase tracking-wider text-muted mb-3">— 할인</div>
                 <button onClick={() => setCouponOpen(o => !o)}
@@ -375,25 +376,26 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                 </div>
                 <p className="text-[12px] text-muted mt-1.5">연락처로 나중에 문의 내역을 조회할 수 있어요.</p>
               </div>
-
-              {/* 최종 결제 (고정 하단) */}
-              <div className="border-t border-line px-6 md:px-8 py-5 bg-bg shrink-0">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-mono text-[11px] uppercase tracking-wider text-muted">선택 {selItems.length}개 · 총 결제 <span className="text-muted">(VAT 포함)</span></span>
-                  {saved > 0 && <span className="text-[12px] text-ink font-bold">-{won(saved)} 할인</span>}
-                </div>
-                <div className="font-display text-4xl font-bold leading-none mb-4">{won(total)}</div>
-                <button onClick={sendToKakao} disabled={selItems.length === 0}
-                  className="w-full bg-kakao text-ink py-4 inline-flex items-center justify-center gap-2 hover-lift disabled:opacity-40">
-                  <Ico.chat className="w-4 h-4"/> 선택 항목 카카오톡 문의
-                </button>
-                <div className="flex items-center justify-between mt-3">
-                  <button onClick={onClear} className="font-mono text-[11px] uppercase tracking-wider text-muted hover:text-ink underline-grow">전체 비우기</button>
-                  <span className="text-[11px] text-muted">시작일·내역이 메시지에 자동 입력</span>
-                </div>
-              </div>
             </div>
           </div>
+
+          {/* 최종 결제 (패널 하단 고정) */}
+          <div className="border-t border-ink px-6 md:px-8 py-5 bg-bg shrink-0">
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-mono text-[11px] uppercase tracking-wider text-muted">선택 {selItems.length}개 · 총 결제 <span className="text-muted">(VAT 포함)</span></span>
+              {saved > 0 && <span className="text-[12px] text-ink font-bold">-{won(saved)} 할인</span>}
+            </div>
+            <div className="font-display text-4xl font-bold leading-none mb-4">{won(total)}</div>
+            <button onClick={sendToKakao} disabled={selItems.length === 0}
+              className="w-full bg-kakao text-ink py-4 inline-flex items-center justify-center gap-2 hover-lift disabled:opacity-40">
+              <Ico.chat className="w-4 h-4"/> 선택 항목 카카오톡 문의
+            </button>
+            <div className="flex items-center justify-between mt-3">
+              <button onClick={onClear} className="font-mono text-[11px] uppercase tracking-wider text-muted hover:text-ink underline-grow">전체 비우기</button>
+              <span className="text-[11px] text-muted">시작일·내역이 메시지에 자동 입력</span>
+            </div>
+          </div>
+          </>
         )}
       </div>
     </div>
