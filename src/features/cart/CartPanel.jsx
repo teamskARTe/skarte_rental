@@ -270,7 +270,14 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                   </span>
                 </button>
                 {couponOpen && (
-                  <div className="space-y-2 mb-4 fade-in">
+                  <div className="mb-4 fade-in border border-line bg-bg">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-line bg-[#FAFAFA]">
+                      <span className="text-[12px] font-bold text-ink">할인 선택</span>
+                      <button onClick={() => setCouponOpen(false)} className="text-muted hover:text-ink flex items-center gap-1 text-[12px]">
+                        닫기 <Ico.close className="w-3.5 h-3.5"/>
+                      </button>
+                    </div>
+                    <div className="max-h-[240px] overflow-y-auto scrollbar-hide p-2 space-y-2">
                     {COUPONS.length === 1 && (
                       <div className="text-[12px] text-muted px-1 py-2">현재 적용 가능한 할인이 없습니다.</div>
                     )}
@@ -294,6 +301,7 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                         </button>
                       );
                     })}
+                    </div>
                   </div>
                 )}
 
