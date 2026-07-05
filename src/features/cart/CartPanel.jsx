@@ -44,20 +44,23 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
   const toggleAll = () => setSelected(allSelected ? [] : items.map(i => i.id));
 
   const calc = (price, days) => {
-    if (days >= 7) return Math.round(price * days * 0.8);
-    if (days >= 3) return Math.round(price * days * 0.9);
-    return price * days;
+    const d = parseInt(days) || 0;
+    if (d >= 7) return Math.round(price * d * 0.8);
+    if (d >= 3) return Math.round(price * d * 0.9);
+    return price * d;
   };
-  const discRate = (days) => days >= 7 ? 0.2 : days >= 3 ? 0.1 : 0;
+  const discRate = (days) => { const d = parseInt(days)||0; return d >= 7 ? 0.2 : d >= 3 ? 0.1 : 0; };
 
   const selItems = items.filter(i => isSel(i.id));
+  // 선택 항목 중 대여 일수가 설정 안 된 게 있는지
+  const hasUnsetDays = selItems.some(i => !i.days || parseInt(i.days) < 1);
   // 선택 항목 기준: 정가 합계, 기간 할인 합계, 소계
-  const listTotal = selItems.reduce((s, i) => s + i.gear.price * i.days * i.qty, 0);
+  const listTotal = selItems.reduce((s, i) => s + i.gear.price * (parseInt(i.days)||0) * i.qty, 0);
   const subtotal = selItems.reduce((s, i) => s + calc(i.gear.price, i.days) * i.qty, 0);
   const periodSaved = listTotal - subtotal;
   // 기간 할인 구간별 집계 (7일 -20%, 3일 -10%)
-  const period7 = selItems.filter(i => i.days >= 7).reduce((s,i) => s + (i.gear.price*i.days*i.qty - calc(i.gear.price,i.days)*i.qty), 0);
-  const period3 = selItems.filter(i => i.days >= 3 && i.days < 7).reduce((s,i) => s + (i.gear.price*i.days*i.qty - calc(i.gear.price,i.days)*i.qty), 0);
+  const period7 = selItems.filter(i => (parseInt(i.days)||0) >= 7).reduce((s,i) => s + (i.gear.price*(parseInt(i.days)||0)*i.qty - calc(i.gear.price,i.days)*i.qty), 0);
+  const period3 = selItems.filter(i => (parseInt(i.days)||0) >= 3 && (parseInt(i.days)||0) < 7).reduce((s,i) => s + (i.gear.price*(parseInt(i.days)||0)*i.qty - calc(i.gear.price,i.days)*i.qty), 0);
 
   // 할인 이벤트 (관리자가 만든 것, 활성만 + 미적용 옵션)
   const { discounts } = useContext(SiteCtx);
@@ -101,10 +104,11 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
   const minDate = new Date().toISOString().slice(0, 10);
 
   const sendToKakao = () => {
-    if (selItems.length === 0) return;
+    if (selItems.length === 0 || hasUnsetDays) return;
     const lines = selItems.map((i, idx) => {
       const sub = calc(i.gear.price, i.days) * i.qty;
-      const disc = i.days >= 7 ? ' (-20%)' : i.days >= 3 ? ' (-10%)' : '';
+      const dd = parseInt(i.days) || 0;
+      const disc = dd >= 7 ? ' (-20%)' : dd >= 3 ? ' (-10%)' : '';
       // 항목별 종료일 (시작일 + 일수 - 1)
       let endStr = '';
       if (startDate) {
@@ -210,8 +214,14 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                               )}
                             </button>
                           ))}
-                          <input type="number" min="1" max="90" value={i.days}
-                            onChange={e => onUpdate(i.id, { days: Math.max(1, parseInt(e.target.value) || 1) })}
+                          <input type="number" min="1" max="90" value={i.days === '' || i.days == null ? '' : i.days}
+                            onChange={e => {
+                              const v = e.target.value;
+                              if (v === '') { onUpdate(i.id, { days: '' }); return; }
+                              const n = parseInt(v);
+                              onUpdate(i.id, { days: isNaN(n) ? '' : Math.min(90, Math.max(1, n)) });
+                            }}
+                            placeholder="일"
                             className="w-12 h-8 text-[13px] font-mono border border-line text-center bg-transparent outline-none focus:border-ink"/>
                         </div>
                       </div>
@@ -235,14 +245,20 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
 
                     {/* Subtotal */}
                     <div className="mt-4 pl-8 flex items-baseline justify-between">
-                      <span className="font-mono text-[13px] text-muted">
-                        {i.gear.price > 0 ? `${won(i.gear.price)}/일 × ${i.days}일 × ${i.qty}대` : '문의 필요'}
-                        {rate > 0 && i.gear.price > 0 && <span className="ml-1.5 text-ink font-bold">-{rate*100}%</span>}
-                      </span>
-                      <span className="text-right">
-                        {rate > 0 && i.gear.price > 0 && <span className="block font-mono text-[12px] text-muted line-through leading-none">{won(listSub)}</span>}
-                        <span className="font-mono text-[15px] font-bold">{i.gear.price > 0 ? won(sub) : '문의'}</span>
-                      </span>
+                      {!i.days || parseInt(i.days) < 1 ? (
+                        <span className="font-mono text-[13px] text-kakao-ink font-bold" style={{ color: '#c2410c' }}>← 대여 일수를 입력해 주세요</span>
+                      ) : (
+                        <>
+                          <span className="font-mono text-[13px] text-muted">
+                            {i.gear.price > 0 ? `${won(i.gear.price)}/일 × ${i.days}일 × ${i.qty}대` : '문의 필요'}
+                            {rate > 0 && i.gear.price > 0 && <span className="ml-1.5 text-ink font-bold">-{rate*100}%</span>}
+                          </span>
+                          <span className="text-right">
+                            {rate > 0 && i.gear.price > 0 && <span className="block font-mono text-[12px] text-muted line-through leading-none">{won(listSub)}</span>}
+                            <span className="font-mono text-[15px] font-bold">{i.gear.price > 0 ? won(sub) : '문의'}</span>
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -393,10 +409,14 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted">선택 {selItems.length}개 · 총 결제 <span className="text-muted">(VAT 포함)</span></span>
               {saved > 0 && <span className="text-[12px] text-ink font-bold">-{won(saved)} 할인</span>}
             </div>
-            <div className="font-display text-4xl font-bold leading-none mb-4">{won(total)}</div>
-            <button onClick={sendToKakao} disabled={selItems.length === 0}
-              className="w-full bg-kakao text-ink py-4 inline-flex items-center justify-center gap-2 hover-lift disabled:opacity-40">
-              <Ico.chat className="w-4 h-4"/> 선택 항목 카카오톡 문의
+            {hasUnsetDays ? (
+              <div className="font-display text-2xl font-bold leading-tight mb-4 text-muted">대여일 설정 필요</div>
+            ) : (
+              <div className="font-display text-4xl font-bold leading-none mb-4">{won(total)}</div>
+            )}
+            <button onClick={sendToKakao} disabled={selItems.length === 0 || hasUnsetDays}
+              className="w-full bg-kakao text-ink py-4 inline-flex items-center justify-center gap-2 hover-lift disabled:opacity-40 disabled:cursor-not-allowed">
+              <Ico.chat className="w-4 h-4"/> {hasUnsetDays ? '대여일을 설정해 주세요' : '선택 항목 카카오톡 문의'}
             </button>
             <div className="flex items-center justify-between mt-3">
               <button onClick={onClear} className="font-mono text-[11px] uppercase tracking-wider text-muted hover:text-ink underline-grow">전체 비우기</button>
