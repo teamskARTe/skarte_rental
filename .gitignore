@@ -1,0 +1,9 @@
+node_modules
+dist
+.DS_Store
+*.local
+.env
+.env.*
+
+# Supabase SQL (한 번만 SQL Editor에서 실행, 배포 불필요)
+supabase/
