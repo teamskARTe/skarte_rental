@@ -66,8 +66,10 @@ export const SUPABASE_ANON_KEY = 'eyJ...';
 
 ## 관리자 데모 계정
 
-- 이메일: `skartefilm@naver.com` / 비밀번호: `1234`
-- 변경 위치: `src/data/defaults.js`의 `ADMIN_EMAIL`, `ADMIN_PW`
+- 이메일: `team.skarte@gmail.com`
+- 관리자 이메일 변경 위치: `src/data/defaults.js`의 `ADMIN_EMAIL`
+- 비밀번호는 코드가 아닌 Supabase `site_data`의 `skeart_users`에 SHA-256 해시로 저장됩니다
+- 회원 등급은 `skeart_users` 각 계정의 `role` 필드(`admin` | `user`)로 구분합니다. `role`이 없는 옛 계정은 `ADMIN_EMAIL` 일치 여부로 판별하며, 로그인 시 자동으로 `role`이 채워집니다
 
 ## 카카오톡 채널 연결
 

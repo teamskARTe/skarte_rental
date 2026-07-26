@@ -2,7 +2,7 @@ import { useState, useContext } from 'react';
 import { Empty } from '../../components/Empty';
 import { Ico } from '../../components/Ico';
 import { EquipCtx, CategoriesCtx } from '../../context';
-import { EQUIPMENT } from '../../data/defaults';
+import { EQUIPMENT, roleLabel } from '../../data/defaults';
 import { calcPrice, priceLabel, won } from '../../lib/format';
 
 export function MyPage({ user, wishlist, orders, cart, onLogout, onItemClick, onToggleWish, onOpenCart, setPage, setCategory }) {
@@ -136,7 +136,7 @@ export function MyPage({ user, wishlist, orders, cart, onLogout, onItemClick, on
               { k:'이름', v:user.name },
               { k:'이메일', v:user.email },
               { k:'가입일', v:user.joinedAt },
-              { k:'회원 등급', v:'일반 회원' },
+              { k:'회원 등급', v:roleLabel(user) },
             ].map(row => (
               <div key={row.k} className="flex items-center justify-between px-5 py-4">
                 <span className="font-mono text-[12px] uppercase tracking-wider text-muted">{row.k}</span>

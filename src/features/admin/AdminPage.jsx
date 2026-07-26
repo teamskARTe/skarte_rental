@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Ico } from '../../components/Ico';
 import { ImageInput } from '../../components/ImageInput';
-import { ADMIN_EMAIL, DEFAULT_EQUIPMENT } from '../../data/defaults';
+import { DEFAULT_EQUIPMENT, isAdminUser, roleLabel } from '../../data/defaults';
 import { EquipDetailModal } from './EquipDetailModal';
 import { EquipForm } from './EquipForm';
 import { RentalCalendar } from '../rentals/RentalCalendar';
@@ -20,7 +20,9 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const [orderQuery, setOrderQuery] = useState('');
   const [orderFilter, setOrderFilter] = useState('all');
   const [userQuery, setUserQuery] = useState('');
-  const users = (usersProp || []).filter(u => u.email !== ADMIN_EMAIL);
+  // 관리자 계정을 앞으로, 통계(가입 회원 수)는 일반 회원만 집계
+  const allUsers = [...(usersProp || [])].sort((a, b) => isAdminUser(b) - isAdminUser(a));
+  const users = allUsers.filter(u => !isAdminUser(u));
 
   // ── 콘텐츠 임시(draft) 상태: 저장 버튼을 눌러야 실제 반영 ──
   const [draft, setDraft] = useState({ homeBanner, eventBanners, brands, works, discounts, notices, sets, bestIds });
@@ -385,7 +387,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
 
       {/* 회원 */}
       {tab==='user' && (
-        users.length === 0 ? (
+        allUsers.length === 0 ? (
           <div className="border border-line py-20 text-center text-muted">가입한 회원이 없습니다.</div>
         ) : (
           <div>
@@ -395,7 +397,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
             </div>
             {(() => {
               const q = userQuery.toLowerCase();
-              const list = users.filter(u => q === '' || (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q));
+              const list = allUsers.filter(u => q === '' || (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q));
               if (list.length === 0) return <div className="border border-line py-16 text-center text-muted text-[14px]">검색 결과가 없습니다.</div>;
               return (
                 <div className="border border-line divide-y divide-line">
@@ -405,6 +407,9 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                       <span className="flex-1 min-w-0">
                         <span className="text-[14px] block truncate">{u.name}</span>
                         <span className="text-[13px] text-muted block truncate">{u.email}</span>
+                      </span>
+                      <span className={`text-[11px] px-2 py-1 shrink-0 border ${isAdminUser(u) ? 'border-ink text-ink' : 'border-line text-muted'}`}>
+                        {roleLabel(u)}
                       </span>
                       <span className="font-mono text-[12px] text-muted shrink-0 hidden sm:block">{u.joinedAt}</span>
                     </div>

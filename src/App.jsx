@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Footer } from './components/Footer';
 import { Nav } from './components/Nav';
 import { EquipCtx, SiteCtx, CategoriesCtx } from './context';
-import { ADMIN_EMAIL, CATEGORIES, DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, seedRentals, DEFAULT_WORKS } from './data/defaults';
+import { ADMIN_EMAIL, ROLE_USER, isAdminUser, roleOf, CATEGORIES, DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, seedRentals, DEFAULT_WORKS } from './data/defaults';
 import { AdminPage } from './features/admin/AdminPage';
 import { AuthModal } from './features/auth/AuthModal';
 import { MyPage } from './features/auth/MyPage';
@@ -79,7 +79,11 @@ export function App() {
     });
   }, []);
 
-  const isAdmin = user && user.email === ADMIN_EMAIL;
+  // 관리자 판별: 세션의 role 우선, 없으면 users 목록/ADMIN_EMAIL로 보정(기존 세션 호환)
+  const isAdmin = !!user && (
+    user.role ? isAdminUser(user)
+              : isAdminUser(users.find(u => u.email === user.email) || user)
+  );
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [page]);
   // 장비 목록에 없는(옛 더미 등) 장바구니 항목 자동 정리
@@ -131,9 +135,9 @@ export function App() {
     if (sb) { const fresh = await store.cloudReadKey('skeart_users'); if (fresh) current = fresh; }
     if (current.find(u => u.email === em)) return '이미 가입된 이메일입니다.';
     const hashed = await hashPassword(pw);
-    const u = { name: name.trim(), email: em, pw: hashed, joinedAt: new Date().toISOString().slice(0,10) };
+    const u = { name: name.trim(), email: em, pw: hashed, role: ROLE_USER, joinedAt: new Date().toISOString().slice(0,10) };
     setUsers([...current, u]);
-    const sess = { name: u.name, email: u.email, joinedAt: u.joinedAt };
+    const sess = { name: u.name, email: u.email, role: u.role, joinedAt: u.joinedAt };
     setUser(sess); setAuthOpen(false); showToast(`${u.name}님, 환영합니다!`);
     return true;
   };
@@ -145,12 +149,14 @@ export function App() {
     if (!u) return '가입되지 않은 이메일입니다.';
     const ok = await verifyPassword(pw, u.pw);
     if (!ok) return '비밀번호가 일치하지 않습니다.';
-    // 기존 평문 비밀번호면 로그인 성공 시 해시로 업그레이드
-    if (isLegacyPlain(u.pw)) {
-      const hashed = await hashPassword(pw);
-      setUsers(current.map(x => x.email === em ? { ...x, pw: hashed } : x));
+    // 기존 평문 비밀번호면 해시로, role이 없던 계정이면 등급을 채워서 업그레이드
+    const role = roleOf(u);
+    const needsPwUpgrade = isLegacyPlain(u.pw);
+    if (needsPwUpgrade || !u.role) {
+      const hashed = needsPwUpgrade ? await hashPassword(pw) : u.pw;
+      setUsers(current.map(x => x.email === em ? { ...x, pw: hashed, role } : x));
     }
-    const sess = { name: u.name, email: u.email, joinedAt: u.joinedAt };
+    const sess = { name: u.name, email: u.email, role, joinedAt: u.joinedAt };
     setUser(sess); setAuthOpen(false); showToast(`${u.name}님, 다시 오셨네요!`);
     return true;
   };

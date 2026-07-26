@@ -135,7 +135,20 @@ export const DEFAULT_DISCOUNTS = [
 ];
 
 // 관리자 권한 판별용 이메일. 실제 비밀번호는 Supabase(site_data의 skeart_users)에서 관리됩니다.
-export const ADMIN_EMAIL = 'skartefilm@naver.com';
+export const ADMIN_EMAIL = 'team.skarte@gmail.com';
+
+// 회원 등급. 저장된 계정에 role이 없으면 ADMIN_EMAIL 일치 여부로 판별(기존 데이터 호환)
+export const ROLE_ADMIN = 'admin';
+export const ROLE_USER = 'user';
+
+export const isAdminUser = (u) => {
+  if (!u) return false;
+  if (u.role) return u.role === ROLE_ADMIN;
+  return String(u.email || '').toLowerCase() === ADMIN_EMAIL;
+};
+
+export const roleOf = (u) => (isAdminUser(u) ? ROLE_ADMIN : ROLE_USER);
+export const roleLabel = (u) => (isAdminUser(u) ? '관리자' : '일반 회원');
 
 export const RENTAL_COLORS = ['#E0DAC8','#CFE0D6','#E0CFD8','#CEDAE2','#E5DAC9','#D6DCC9','#D5D8E4','#E2D3CB'];
 
