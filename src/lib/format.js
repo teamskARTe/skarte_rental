@@ -15,7 +15,7 @@ export const calcPrice = (price, days) => {
   return price * days;
 };
 
-export const KAKAO_URL = 'https://pf.kakao.com/_xxxxxx';
+export const KAKAO_URL = 'https://pf.kakao.com/_VGJxnX/chat';
 
 export const openKakao = (msg='') => {
   // 채널 URL 또는 미리 채워진 메시지가 있는 카카오톡 오픈채팅 등으로 연결
