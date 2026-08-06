@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Ico } from '../../components/Ico';
 import { ImageInput } from '../../components/ImageInput';
-import { DEFAULT_EQUIPMENT, isAdminUser, roleLabel } from '../../data/defaults';
+import { DEFAULT_EQUIPMENT, isAdminUser, roleLabel, BRANCHES, branchName } from '../../data/defaults';
 import { EquipDetailModal } from './EquipDetailModal';
 import { EquipForm } from './EquipForm';
 import { RentalCalendar } from '../rentals/RentalCalendar';
@@ -20,6 +20,72 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const [orderQuery, setOrderQuery] = useState('');
   const [orderFilter, setOrderFilter] = useState('all');
   const [userQuery, setUserQuery] = useState('');
+
+  // ── 문의 편집 (장비 목록 · 예약 날짜/시간 · 픽업/반납 지점) ──
+  const [editOrderId, setEditOrderId] = useState(null);
+  const [oDraft, setODraft] = useState(null);
+  const [addGearId, setAddGearId] = useState('');
+
+  const startEditOrder = (o) => {
+    setEditOrderId(o.id);
+    setODraft({ ...o, items: (o.items || []).map(it => ({ ...it })) });
+    setAddGearId('');
+  };
+  const cancelEditOrder = () => { setEditOrderId(null); setODraft(null); };
+
+  const patchDraft = (patch) => setODraft(d => ({ ...d, ...patch }));
+  const patchDraftItem = (idx, patch) =>
+    setODraft(d => ({ ...d, items: d.items.map((it, i) => i === idx ? { ...it, ...patch } : it) }));
+  const removeDraftItem = (idx) =>
+    setODraft(d => ({ ...d, items: d.items.filter((_, i) => i !== idx) }));
+  const addDraftItem = () => {
+    const g = equipment.find(e => e.id === addGearId);
+    if (!g) return;
+    setODraft(d => ({ ...d, items: [...(d.items || []), { id: g.id, name: g.name, qty: 1, days: 1 }] }));
+    setAddGearId('');
+  };
+
+  // 편집 중인 문의의 금액을 장비 목록 기준으로 다시 계산 (렌탈료 → 안심케어 → VAT)
+  const draftTotals = (() => {
+    if (!oDraft) return null;
+    const rent = (oDraft.items || []).reduce((s, it) => {
+      const g = equipment.find(e => e.id === it.id);
+      const price = g ? g.price : 0;
+      return s + calcPrice(price, parseInt(it.days) || 0) * (parseInt(it.qty) || 0);
+    }, 0);
+    const careFee = oDraft.care ? Math.round(rent * 0.20) : 0;
+    const vat = Math.round((rent + careFee) * 0.10);
+    return { rent, careFee, vat, total: rent + careFee + vat };
+  })();
+
+  const saveEditOrder = () => {
+    if (!oDraft) return;
+    const next = draftTotals
+      ? { ...oDraft, careFee: draftTotals.careFee, vat: draftTotals.vat, total: draftTotals.total }
+      : oDraft;
+    setOrders(prev => prev.map(o => o.id === next.id ? next : o));
+
+    // 이미 수락된 문의라면 예약 일정(캘린더)도 새 장비 목록·날짜로 다시 만듭니다.
+    if ((next.status || 'pending') === 'accepted' && next.type === 'cart') {
+      setRentals(prev => {
+        const others = prev.filter(r => r.fromOrder !== next.refNo);
+        if (!next.startDate) return others;
+        const rebuilt = (next.items || [])
+          .filter(it => it.id && !String(it.id).startsWith('set_'))
+          .map((it, idx) => ({
+            id: `ord${next.refNo}_${idx}`,
+            gearId: it.id,
+            qty: parseInt(it.qty) || 1,
+            renter: next.name || `문의 #${next.refNo}`,
+            start: next.startDate,
+            days: parseInt(it.days) || 1,
+            fromOrder: next.refNo,
+          }));
+        return [...others, ...rebuilt];
+      });
+    }
+    cancelEditOrder();
+  };
   // 관리자 계정을 앞으로, 통계(가입 회원 수)는 일반 회원만 집계
   const allUsers = [...(usersProp || [])].sort((a, b) => isAdminUser(b) - isAdminUser(a));
   const users = allUsers.filter(u => !isAdminUser(u));
@@ -331,7 +397,14 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                             <span className={`text-[11px] font-mono px-2 py-0.5 ${stBadge(st)}`}>{stLabel(st)}</span>
                             <span className="text-[11px] font-mono px-2 py-0.5 border border-line text-muted">{o.type==='extra' ? '추가장비' : '대여'}</span>
                           </div>
-                          <div className="font-mono text-[12px] text-muted mt-1">{o.date}{o.startDate ? ` · 대여시작 ${o.startDate}` : ''}</div>
+                          <div className="font-mono text-[12px] text-muted mt-1">접수 {o.date}</div>
+                          {o.type !== 'extra' && (o.startDate || o.returnDate) && (
+                            <div className="font-mono text-[12px] text-muted mt-0.5">
+                              {o.startDate && <span>렌탈 {o.startDate}{o.startTime ? ` ${o.startTime}` : ''}{o.pickupBranch ? ` · ${branchName(o.pickupBranch)}` : ''}</span>}
+                              {o.startDate && o.returnDate && <span className="mx-1.5">→</span>}
+                              {o.returnDate && <span>반납 {o.returnDate}{o.returnTime ? ` ${o.returnTime}` : ''}{o.returnBranch ? ` · ${branchName(o.returnBranch)}` : ''}</span>}
+                            </div>
+                          )}
                         </div>
                         {o.total > 0 && <div className="font-mono text-[14px] font-bold shrink-0">{won(o.total)}</div>}
                       </div>
@@ -342,6 +415,125 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                           <div><span className="text-muted">요청 장비:</span> {o.gear}</div>
                           {o.situation && <div><span className="text-muted">상황:</span> {o.situation}</div>}
                           {o.contact && <div><span className="text-muted">연락처:</span> {o.contact}</div>}
+                        </div>
+                      ) : editOrderId === o.id && oDraft ? (
+                        /* ── 편집 모드: 장비 목록 · 예약 날짜/시간 · 지점 ── */
+                        <div className="border border-ink p-4 mb-3 bg-[#FAFAFA] space-y-4">
+                          {/* 렌탈 / 반납 */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <div className="text-[12px] font-bold text-ink mb-1.5">렌탈 (픽업)</div>
+                              <div className="flex gap-1.5 mb-1.5">
+                                <input type="date" value={oDraft.startDate || ''} onChange={e => patchDraft({ startDate: e.target.value })}
+                                  className="flex-1 min-w-0 text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-bg"/>
+                                <input type="time" value={oDraft.startTime || ''} onChange={e => patchDraft({ startTime: e.target.value })}
+                                  className="w-24 text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-bg"/>
+                              </div>
+                              <div className="flex gap-1.5">
+                                {BRANCHES.map(b => (
+                                  <button key={b.id} onClick={() => patchDraft({ pickupBranch: b.id })}
+                                    className={`flex-1 text-[12px] px-2 py-1.5 border ${oDraft.pickupBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
+                                    {b.name}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[12px] font-bold text-ink mb-1.5">반납</div>
+                              <div className="flex gap-1.5 mb-1.5">
+                                <input type="date" value={oDraft.returnDate || ''} onChange={e => patchDraft({ returnDate: e.target.value })}
+                                  className="flex-1 min-w-0 text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-bg"/>
+                                <input type="time" value={oDraft.returnTime || ''} onChange={e => patchDraft({ returnTime: e.target.value })}
+                                  className="w-24 text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-bg"/>
+                              </div>
+                              <div className="flex gap-1.5">
+                                {BRANCHES.map(b => (
+                                  <button key={b.id} onClick={() => patchDraft({ returnBranch: b.id })}
+                                    className={`flex-1 text-[12px] px-2 py-1.5 border ${oDraft.returnBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
+                                    {b.name}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 성함 · 연락처 */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <div className="text-[12px] font-bold text-ink mb-1.5">성함</div>
+                              <input value={oDraft.name || ''} onChange={e => patchDraft({ name: e.target.value })}
+                                className="w-full text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-bg"/>
+                            </div>
+                            <div>
+                              <div className="text-[12px] font-bold text-ink mb-1.5">연락처</div>
+                              <input value={oDraft.contact || ''} onChange={e => patchDraft({ contact: e.target.value })}
+                                className="w-full text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-bg"/>
+                            </div>
+                          </div>
+
+                          {/* 장비 목록 */}
+                          <div>
+                            <div className="text-[12px] font-bold text-ink mb-1.5">장비 목록</div>
+                            {(oDraft.items || []).length === 0 && (
+                              <div className="text-[12px] text-muted border border-line bg-bg px-3 py-3 mb-2">장비가 없습니다. 아래에서 추가하세요.</div>
+                            )}
+                            <div className="space-y-1.5 mb-2">
+                              {(oDraft.items || []).map((it, i) => {
+                                const g = equipment.find(e => e.id === it.id);
+                                return (
+                                  <div key={i} className="flex items-center gap-1.5 border border-line bg-bg px-2 py-1.5">
+                                    <span className="flex-1 min-w-0 text-[13px] truncate">
+                                      {it.name || (g ? g.name : it.id)}
+                                      {g && <span className="font-mono text-[11px] text-muted ml-1.5">{won(g.price)}/일</span>}
+                                    </span>
+                                    <label className="text-[11px] text-muted shrink-0">일수</label>
+                                    <input type="number" min="1" max="90" value={it.days ?? ''}
+                                      onChange={e => patchDraftItem(i, { days: e.target.value === '' ? '' : Math.max(1, Math.min(90, parseInt(e.target.value) || 1)) })}
+                                      className="w-14 text-[13px] font-mono text-center border border-line focus:border-ink outline-none px-1 py-1 bg-bg"/>
+                                    <label className="text-[11px] text-muted shrink-0">수량</label>
+                                    <input type="number" min="1" max="99" value={it.qty ?? ''}
+                                      onChange={e => patchDraftItem(i, { qty: e.target.value === '' ? '' : Math.max(1, Math.min(99, parseInt(e.target.value) || 1)) })}
+                                      className="w-14 text-[13px] font-mono text-center border border-line focus:border-ink outline-none px-1 py-1 bg-bg"/>
+                                    <button onClick={() => removeDraftItem(i)} className="text-muted hover:text-ink p-1 shrink-0" aria-label="삭제">
+                                      <Ico.trash className="w-3.5 h-3.5"/>
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="flex gap-1.5">
+                              <select value={addGearId} onChange={e => setAddGearId(e.target.value)}
+                                className="flex-1 min-w-0 text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-bg">
+                                <option value="">+ 장비 추가…</option>
+                                {equipment.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                              </select>
+                              <button onClick={addDraftItem} disabled={!addGearId}
+                                className="text-[12px] border border-ink px-3 py-1.5 hover-lift disabled:opacity-40 disabled:cursor-not-allowed shrink-0">추가</button>
+                            </div>
+                          </div>
+
+                          {/* 안심케어 + 금액 재계산 */}
+                          <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-line">
+                            <button onClick={() => patchDraft({ care: !oDraft.care })} className="flex items-center gap-2">
+                              <span className={`w-4 h-4 border flex items-center justify-center ${oDraft.care ? 'bg-ink border-ink' : 'border-line bg-bg'}`}>
+                                {oDraft.care && <Ico.check className="w-3 h-3 text-bg"/>}
+                              </span>
+                              <span className="text-[12px]">안심케어 (+20%)</span>
+                            </button>
+                            {draftTotals && (
+                              <div className="font-mono text-[12px] text-muted">
+                                렌탈료 {won(draftTotals.rent)}
+                                {draftTotals.careFee > 0 && ` + 케어 ${won(draftTotals.careFee)}`}
+                                {` + VAT ${won(draftTotals.vat)}`}
+                                <span className="text-ink font-bold ml-1.5">= {won(draftTotals.total)}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex gap-2 justify-end">
+                            <button onClick={cancelEditOrder} className="text-[12px] border border-line hover:border-ink px-3 py-1.5">취소</button>
+                            <button onClick={saveEditOrder} className="text-[12px] bg-ink text-bg px-4 py-1.5 hover-lift">저장</button>
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-1 mb-3">
@@ -359,6 +551,10 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                            st==='accepted' && o.type==='cart' ? '예약 일정에 등록됨' : ''}
                         </span>
                         <div className="flex gap-2 shrink-0">
+                          {o.type !== 'extra' && editOrderId !== o.id && (
+                            <button onClick={() => startEditOrder(o)}
+                              className="text-[12px] border border-line hover:border-ink px-3 py-1.5">수정</button>
+                          )}
                           {st !== 'accepted' && (
                             <button onClick={() => updateOrderStatus(o.id, 'accepted')}
                               className="text-[12px] bg-ink text-bg px-3 py-1.5 hover-lift">수락</button>

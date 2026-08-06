@@ -170,7 +170,8 @@ export function App() {
 
   // ── 문의 내역 기록 ──
   // 문의 접수: 접수번호 발급 + 상태(pending) 저장, 저장된 객체 반환
-  const recordOrder = ({ items, total, startDate, type = 'cart', gear, situation, contact, name }) => {
+  const recordOrder = ({ items, total, startDate, type = 'cart', gear, situation, contact, name,
+    startTime, returnDate, returnTime, pickupBranch, returnBranch, care, careFee, vat }) => {
     // 접수번호: 1001부터 1씩 증가
     const lastNo = orders.reduce((m, o) => Math.max(m, o.refNo || 1000), 1000);
     const refNo = lastNo + 1;
@@ -184,6 +185,14 @@ export function App() {
       items: items || [],
       total: total || 0,
       startDate: startDate || '',
+      startTime: startTime || '',
+      returnDate: returnDate || '',
+      returnTime: returnTime || '',
+      pickupBranch: pickupBranch || '',
+      returnBranch: returnBranch || '',
+      care: !!care,
+      careFee: careFee || 0,
+      vat: vat || 0,
       gear: gear || '',
       situation: situation || '',
       contact: contact || '',

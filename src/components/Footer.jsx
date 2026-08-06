@@ -1,6 +1,7 @@
 import { LOGO_WHITE } from '../assets/logo';
 import { Ico } from './Ico';
 import { openKakao } from '../lib/format';
+import { BRANCHES, COMPANY } from '../data/defaults';
 
 export function Footer({ setPage }) {
   return (
@@ -14,15 +15,15 @@ export function Footer({ setPage }) {
             <span className="font-display font-bold text-3xl md:text-4xl leading-none">skARTe Rental</span>
           </div>
           <div className="space-y-2 text-[13px] leading-relaxed">
-            <div><span className="text-bg/70 font-bold">회사명</span> &nbsp;스케아트 렌탈</div>
-            <div><span className="text-bg/70 font-bold">대표</span> &nbsp;김준겸</div>
-            <div><span className="text-bg/70 font-bold">사업자등록번호</span> &nbsp;397-26-01937</div>
-            <div className="text-bg/45 leading-relaxed pt-1">인천광역시 연수구 먼우금로 194<br/>728호 (연수동, 메카오피스텔)</div>
+            <div><span className="text-bg/70 font-bold">회사명</span> &nbsp;{COMPANY.name}</div>
+            <div><span className="text-bg/70 font-bold">대표</span> &nbsp;{COMPANY.ceo}</div>
+            <div><span className="text-bg/70 font-bold">사업자등록번호</span> &nbsp;{COMPANY.bizNo}</div>
+            <div className="text-bg/45 leading-relaxed pt-1">{COMPANY.address}<br/>{COMPANY.addressDetail}</div>
           </div>
           <div className="mt-5 space-y-1.5 text-[13px]">
-            <div><span className="text-bg/70 font-bold">TEL</span> &nbsp;<span className="font-bold">010-5949-0686</span></div>
-            <div><span className="text-bg/70 font-bold">E-mail</span> &nbsp;skartefilm@naver.com</div>
-            <div><span className="text-bg/70 font-bold">Instagram</span> &nbsp;<a href="https://instagram.com/skartefilm" target="_blank" rel="noopener noreferrer" className="underline-grow">@skartefilm</a></div>
+            <div><span className="text-bg/70 font-bold">TEL</span> &nbsp;<span className="font-bold">{COMPANY.tel}</span></div>
+            <div><span className="text-bg/70 font-bold">E-mail</span> &nbsp;{COMPANY.email}</div>
+            <div><span className="text-bg/70 font-bold">Instagram</span> &nbsp;<a href={`https://instagram.com/${COMPANY.instagram}`} target="_blank" rel="noopener noreferrer" className="underline-grow">@{COMPANY.instagram}</a></div>
           </div>
           <p className="mt-6 text-[12px] text-bg/35 leading-relaxed max-w-sm">
             스케아트 렌탈의 모든 제품 사진과 콘텐츠는 저작권으로 보호됩니다. 상업적 무단 도용은 고의적인 저작권 침해로 간주되며, 법적 책임이 부과됩니다.
@@ -32,13 +33,17 @@ export function Footer({ setPage }) {
         {/* 2단 — 연락 / 영업시간 */}
         <div>
           <div className="text-[12px] tracking-tight text-bg/45 mb-2">대표 연락처</div>
-          <div className="font-display text-2xl md:text-3xl leading-none mb-8">010-5949-0686</div>
+          <div className="font-display text-2xl md:text-3xl leading-none mb-8">{COMPANY.tel}</div>
 
           <div className="text-[12px] tracking-tight text-bg/45 mb-3">영업시간</div>
-          <div className="space-y-1 text-[14px] leading-relaxed">
-            <div>평일 10:00 – 19:00</div>
-            <div className="text-bg/45">주말·공휴일 휴무</div>
-            <div className="text-kakao font-bold pt-1">무인 렌탈 24시간 운영</div>
+          <div className="space-y-4 text-[14px] leading-relaxed">
+            {BRANCHES.map(b => (
+              <div key={b.id}>
+                <div className="font-bold">{b.name}</div>
+                {b.hours.map((h,i) => <div key={i} className={i === 0 ? '' : 'text-bg/45'}>{h}</div>)}
+                {b.note && <div className="text-kakao font-bold">{b.note}</div>}
+              </div>
+            ))}
           </div>
 
           <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-[13px]">
@@ -52,8 +57,8 @@ export function Footer({ setPage }) {
         <div>
           <div className="text-[12px] tracking-tight text-bg/45 mb-3">입금 계좌 안내</div>
           <div className="space-y-2 text-[13px] leading-relaxed">
-            <div><span className="text-bg/70 font-bold">계좌번호</span> &nbsp;356-0813-6887-53 (농협)</div>
-            <div><span className="text-bg/70 font-bold">예금주</span> &nbsp;김준겸</div>
+            <div><span className="text-bg/70 font-bold">계좌번호</span> &nbsp;{COMPANY.account} ({COMPANY.bank})</div>
+            <div><span className="text-bg/70 font-bold">예금주</span> &nbsp;{COMPANY.accountHolder}</div>
           </div>
           <p className="text-[13px] text-bg/45 mt-5 leading-relaxed max-w-xs">
             예약금(10만원) 입금 확인 시점에 예약이 확정됩니다. 정상 렌탈·반납 시 예약금은 전액 환불됩니다.

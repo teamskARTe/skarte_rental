@@ -1,8 +1,8 @@
 import { useState, useEffect, useContext } from 'react';
 import { Ico } from '../../components/Ico';
 import { EquipCtx, SiteCtx, CategoriesCtx } from '../../context';
-import { EQUIPMENT } from '../../data/defaults';
-import { openKakao, won } from '../../lib/format';
+import { EQUIPMENT, BRANCHES, branchName } from '../../data/defaults';
+import { openKakao, copyText, won } from '../../lib/format';
 
 export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecordOrder, user, onAuthOpen }) {
   const CATEGORIES = useContext(CategoriesCtx);
@@ -103,8 +103,31 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
   };
   const minDate = new Date().toISOString().slice(0, 10);
 
-  const sendToKakao = () => {
-    if (selItems.length === 0 || hasUnsetDays) return;
+  // ── 픽업/반납 시간 · 장소 ──
+  // 렌탈 장소와 반납 장소는 서로 다르게 선택할 수 있습니다.
+  const [startTime, setStartTime] = useState('10:00');
+  const [returnTime, setReturnTime] = useState('18:00');
+  const [pickupBranch, setPickupBranch] = useState(BRANCHES[0].id);
+  const [returnBranch, setReturnBranch] = useState(BRANCHES[0].id);
+
+  // 반납일 = 시작일 + (선택 항목 중 가장 긴 대여일수 - 1)
+  // toISOString()은 UTC로 변환돼 KST 기준 하루가 밀리므로 로컬 기준으로 직접 포맷합니다.
+  const toLocalISO = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const maxDays = selItems.reduce((m, i) => Math.max(m, parseInt(i.days) || 0), 0);
+  const returnDate = (() => {
+    if (!startDate || maxDays < 1) return '';
+    const d = new Date(startDate + 'T00:00:00');
+    d.setDate(d.getDate() + maxDays - 1);
+    return toLocalISO(d);
+  })();
+
+  // 카카오톡 메시지 복사 상태: null | 'copied' | 'failed'
+  const [copyState, setCopyState] = useState(null);
+  const [lastMsg, setLastMsg] = useState('');
+
+  // 카카오톡에 붙여넣을 문의 내용을 만듭니다 (부수효과 없음).
+  const buildMessage = (refNo) => {
     const lines = selItems.map((i, idx) => {
       const sub = calc(i.gear.price, i.days) * i.qty;
       const dd = parseInt(i.days) || 0;
@@ -120,24 +143,38 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
     const couponLine = couponSaved > 0 ? `\n쿠폰(${selCoupon.label}) · -${won(couponSaved)}` : '';
     const p7Line = period7 > 0 ? `\n7일+ 장기 할인(-20%) · -${won(period7)}` : '';
     const p3Line = period3 > 0 ? `\n3일+ 기간 할인(-10%) · -${won(period3)}` : '';
-    const dateLine = startDate ? `대여 시작일 · ${fmtDate(startDate)}\n` : '';
+    const rentLine = startDate ? `렌탈 · ${fmtDate(startDate)} ${startTime} · ${branchName(pickupBranch)}\n` : '';
+    const backLine = returnDate ? `반납 · ${fmtDate(returnDate)} ${returnTime} · ${branchName(returnBranch)}\n` : '';
     const whoLine = (orderName || orderContact) ? `${orderName ? `성함 · ${orderName}\n` : ''}${orderContact ? `연락처 · ${orderContact}\n` : ''}` : '';
+    const refLine = refNo ? `접수번호 · #${refNo}\n` : '';
 
-    // 문의 저장 + 접수번호 발급 (로그인 무관)
-    let refLine = '';
+    const careLine = careFee > 0 ? `\n안심케어(+20%) · +${won(careFee)}` : '';
+    const vatLine = `\n부가세(VAT 10%) · +${won(vat)}`;
+    return `[대여 문의]\n\n${refLine}${whoLine}${rentLine}${backLine}\n${lines}\n\n────────────${p7Line}${p3Line}${couponLine}${careLine}\n렌탈료 합계 · ${won(afterDiscount)}${vatLine}\n합계(VAT 포함) · ${won(total)}\n\n※ 이 내용을 채팅창에 붙여넣어 보내주세요.`;
+  };
+
+  // 문의 저장(접수번호 발급) → 메시지 복사 → 카카오톡 채널 열기
+  const sendToKakao = () => {
+    if (selItems.length === 0 || hasUnsetDays) return;
+    let refNo = '';
     if (onRecordOrder) {
       const saved = onRecordOrder({
         items: selItems.map(i => ({ id:i.id, name:i.gear.name, qty:i.qty, days:i.days })),
         total, startDate, type:'cart', name: orderName, contact: orderContact,
         care: careOn, careFee, vat,
+        startTime, returnDate, returnTime, pickupBranch, returnBranch,
       });
-      if (saved && saved.refNo) refLine = `접수번호 · #${saved.refNo}\n`;
+      if (saved && saved.refNo) refNo = saved.refNo;
     }
+    const msg = buildMessage(refNo);
+    setLastMsg(msg);
+    openKakao(msg).then(ok => setCopyState(ok ? 'copied' : 'failed'));
+  };
 
-    const careLine = careFee > 0 ? `\n안심케어(+20%) · +${won(careFee)}` : '';
-    const vatLine = `\n부가세(VAT 10%) · +${won(vat)}`;
-    const msg = `[대여 문의]\n\n${refLine}${whoLine}${dateLine}\n${lines}\n\n────────────${p7Line}${p3Line}${couponLine}${careLine}\n렌탈료 합계 · ${won(afterDiscount)}${vatLine}\n합계(VAT 포함) · ${won(total)}\n\n※ 카카오톡 채널에서 위 접수번호를 보내주시면 빠르게 확인해 드려요.`;
-    openKakao(msg);
+  // 이미 만든 메시지를 다시 복사 (문의를 새로 접수하지 않음)
+  const recopy = () => {
+    const msg = lastMsg || buildMessage('');
+    copyText(msg).then(ok => setCopyState(ok ? 'copied' : 'failed'));
   };
 
   return (
@@ -374,15 +411,49 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                   <p className="text-[12px] text-muted mt-2">3일 이상 대여하거나 쿠폰을 적용하면 할인돼요.</p>
                 )}
 
-                {/* 대여 시작일 */}
+                {/* 렌탈 — 날짜·시간·장소 */}
                 <div className="mt-5 pt-4 border-t border-line">
-                  <label className="text-[13px] font-bold text-ink block mb-2">대여 시작일</label>
-                  <input type="date" value={startDate} min={minDate}
-                    onChange={e => setStartDate(e.target.value)}
-                    className="w-full border border-line focus:border-ink outline-none px-3 py-2.5 text-[14px] bg-bg"/>
-                  {startDate && (
-                    <p className="text-[12px] text-muted mt-1.5">{fmtDate(startDate)}부터 대여 (반납일은 항목별 일수 기준)</p>
-                  )}
+                  <label className="text-[13px] font-bold text-ink block mb-2">렌탈 (픽업)</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="date" value={startDate} min={minDate}
+                      onChange={e => setStartDate(e.target.value)}
+                      className="w-full border border-line focus:border-ink outline-none px-3 py-2.5 text-[14px] bg-bg"/>
+                    <input type="time" value={startTime}
+                      onChange={e => setStartTime(e.target.value)}
+                      className="w-full border border-line focus:border-ink outline-none px-3 py-2.5 text-[14px] bg-bg"/>
+                  </div>
+                  <div className="flex gap-1.5 mt-2">
+                    {BRANCHES.map(b => (
+                      <button key={b.id} onClick={() => setPickupBranch(b.id)}
+                        className={`flex-1 text-[13px] px-2 py-2 border transition-colors ${pickupBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
+                        {b.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 반납 — 날짜·시간·장소 */}
+                <div className="mt-4">
+                  <label className="text-[13px] font-bold text-ink block mb-2">반납</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="w-full border border-line px-3 py-2.5 text-[14px] bg-[#F2F2F2] text-muted font-mono">
+                      {returnDate || '—'}
+                    </div>
+                    <input type="time" value={returnTime}
+                      onChange={e => setReturnTime(e.target.value)}
+                      className="w-full border border-line focus:border-ink outline-none px-3 py-2.5 text-[14px] bg-bg"/>
+                  </div>
+                  <div className="flex gap-1.5 mt-2">
+                    {BRANCHES.map(b => (
+                      <button key={b.id} onClick={() => setReturnBranch(b.id)}
+                        className={`flex-1 text-[13px] px-2 py-2 border transition-colors ${returnBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
+                        {b.name}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[12px] text-muted mt-1.5">
+                    반납일은 가장 긴 대여 일수({maxDays || 0}일) 기준으로 자동 계산돼요. 픽업·반납 지점을 다르게 선택하실 수 있습니다.
+                  </p>
                 </div>
 
                 {/* 성함·연락처 (문의 조회용) */}
@@ -414,14 +485,35 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
             ) : (
               <div className="font-display text-4xl font-bold leading-none mb-4">{won(total)}</div>
             )}
+            {/* 복사 결과 안내 */}
+            {copyState === 'copied' && (
+              <div className="mb-3 border border-ink bg-[#FAFAFA] px-4 py-3 fade-in">
+                <div className="text-[13px] font-bold text-ink mb-0.5">문의 내용이 복사되었습니다</div>
+                <div className="text-[12px] text-muted">카카오톡 채팅창에 <span className="font-bold text-ink">붙여넣기(Ctrl+V)</span> 해서 보내주세요.</div>
+              </div>
+            )}
+            {copyState === 'failed' && (
+              <div className="mb-3 border border-ink bg-[#FAFAFA] px-4 py-3 fade-in">
+                <div className="text-[13px] font-bold text-ink mb-1.5">자동 복사가 차단되었어요. 아래 내용을 직접 복사해 주세요.</div>
+                <textarea readOnly value={lastMsg} onFocus={e => e.target.select()} rows={5}
+                  className="w-full border border-line px-2 py-1.5 text-[12px] font-mono bg-bg outline-none focus:border-ink"/>
+              </div>
+            )}
+
             <button onClick={sendToKakao} disabled={selItems.length === 0 || hasUnsetDays}
               className="w-full bg-kakao text-ink py-4 inline-flex items-center justify-center gap-2 hover-lift disabled:opacity-40 disabled:cursor-not-allowed">
-              <Ico.chat className="w-4 h-4"/> {hasUnsetDays ? '대여일을 설정해 주세요' : '선택 항목 카카오톡 문의'}
+              <Ico.chat className="w-4 h-4"/> {hasUnsetDays ? '대여일을 설정해 주세요' : '내용 복사하고 카카오톡 문의'}
             </button>
-            <div className="flex items-center justify-between mt-3">
-              <button onClick={onClear} className="font-mono text-[11px] uppercase tracking-wider text-muted hover:text-ink underline-grow">전체 비우기</button>
-              <span className="text-[11px] text-muted">시작일·내역이 메시지에 자동 입력</span>
+            <div className="flex items-center justify-between mt-3 gap-3">
+              <button onClick={onClear} className="font-mono text-[11px] uppercase tracking-wider text-muted hover:text-ink underline-grow shrink-0">전체 비우기</button>
+              <button onClick={recopy} disabled={selItems.length === 0 || hasUnsetDays}
+                className="text-[12px] border border-line hover:border-ink px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed shrink-0">
+                내용만 다시 복사
+              </button>
             </div>
+            <p className="text-[11px] text-muted mt-2 leading-relaxed">
+              성함·연락처·렌탈/반납 일시·장소·장비 목록·금액이 메시지에 자동으로 담깁니다.
+            </p>
           </div>
           </>
         )}

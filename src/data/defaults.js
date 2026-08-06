@@ -150,6 +150,65 @@ export const isAdminUser = (u) => {
 export const roleOf = (u) => (isAdminUser(u) ? ROLE_ADMIN : ROLE_USER);
 export const roleLabel = (u) => (isAdminUser(u) ? '관리자' : '일반 회원');
 
+// ── 지점 정보 ──
+// 지점 안내 페이지 · 장바구니 픽업/반납 선택 · 푸터에서 공용으로 사용합니다.
+// lat/lng는 확인된 좌표가 있을 때만 사용하고, 없으면 주소 검색으로 지도를 띄웁니다.
+export const BRANCHES = [
+  {
+    id: 'songdo',
+    name: '송도점',
+    role: '본점 · 장비 보관',
+    address: '인천광역시 연수구 송도미래로 30',
+    addressDetail: '송도 BRC 스마트밸리 지식산업센터 E동 1905-A호',
+    hours: ['주말 09:00 – 18:00', '평일 휴무'],
+    note: '예약 시 24시간 운영',
+    pickup: true,
+    return: true,
+  },
+  {
+    id: 'inha',
+    name: '인하대점',
+    role: '픽업 · 반납 전용',
+    address: '인천광역시 미추홀구 인하로 100',
+    addressDetail: '김현태인하드림센터 6층',
+    hours: ['100% 예약제'],
+    note: '픽업·반납만 가능',
+    lat: 37.4486858,
+    lng: 126.6562488,
+    pickup: true,
+    return: true,
+  },
+];
+
+export const branchById = (id) => BRANCHES.find(b => b.id === id) || BRANCHES[0];
+export const branchName = (id) => (BRANCHES.find(b => b.id === id) || {}).name || '';
+
+// 지도 임베드 / 길찾기 링크 (좌표가 있으면 좌표, 없으면 주소 검색)
+export const branchMapEmbed = (b) => b.lat != null
+  ? `https://maps.google.com/maps?q=${b.lat},${b.lng}&z=16&hl=ko&output=embed`
+  : `https://maps.google.com/maps?q=${encodeURIComponent(b.address)}&z=16&hl=ko&output=embed`;
+
+export const branchKakaoMap = (b) => b.lat != null
+  ? `https://map.kakao.com/link/to/스케아트 렌탈 ${b.name},${b.lat},${b.lng}`
+  : `https://map.kakao.com/?q=${encodeURIComponent(b.address)}`;
+
+export const branchNaverMap = (b) => `https://map.naver.com/p/search/${encodeURIComponent(b.address)}`;
+
+// 사업장 대표 정보 (푸터·구조화 데이터 공용)
+export const COMPANY = {
+  name: '스케아트 렌탈',
+  ceo: '김준겸',
+  bizNo: '397-26-01937',
+  address: '인천광역시 연수구 송도미래로 30',
+  addressDetail: '송도 BRC 스마트밸리 지식산업센터 E동 1905-A호',
+  tel: '010-5949-0686',
+  email: 'skartefilm@naver.com',
+  instagram: 'skarte_rental',
+  bank: '농협',
+  account: '302-2169-3030-71',
+  accountHolder: '김준겸(스케아트)',
+};
+
 export const RENTAL_COLORS = ['#E0DAC8','#CFE0D6','#E0CFD8','#CEDAE2','#E5DAC9','#D6DCC9','#D5D8E4','#E2D3CB'];
 
 export const hashId = (s) => { let h=0; for (let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return Math.abs(h); };

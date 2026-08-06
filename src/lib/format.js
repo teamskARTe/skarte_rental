@@ -17,7 +17,36 @@ export const calcPrice = (price, days) => {
 
 export const KAKAO_URL = 'https://pf.kakao.com/_VGJxnX/chat';
 
+// 텍스트를 클립보드로 복사. 성공 여부를 Promise<boolean>로 돌려줍니다.
+// 카카오톡 채널 채팅은 URL로 메시지를 미리 채울 수 없어, 복사 후 붙여넣는 방식으로 처리합니다.
+export const copyText = async (text) => {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) { /* 아래 폴백으로 진행 */ }
+  // 구형 브라우저 · 비보안 컨텍스트 폴백
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e) {
+    return false;
+  }
+};
+
 export const openKakao = (msg='') => {
-  // 채널 URL 또는 미리 채워진 메시지가 있는 카카오톡 오픈채팅 등으로 연결
-  window.open(KAKAO_URL, '_blank');
+  // 메시지가 있으면 클립보드에 복사해 두고 채널 채팅창을 엽니다.
+  // 복사(비동기)를 기다리지 않고 창을 먼저 열어야 팝업 차단에 걸리지 않습니다.
+  const copying = msg ? copyText(msg) : Promise.resolve(false);
+  window.open(KAKAO_URL, '_blank', 'noopener');
+  return copying;
 };
