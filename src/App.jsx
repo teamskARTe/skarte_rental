@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Footer } from './components/Footer';
 import { Nav } from './components/Nav';
@@ -12,7 +12,7 @@ import { CartPanel } from './features/cart/CartPanel';
 import { NoticePopup } from './features/content/NoticePopup';
 import { DetailModal } from './features/equipment/DetailModal';
 import { GearPage } from './features/equipment/GearPage';
-import { sb, store } from './lib/supabase';
+import { sb, store, CLOUD_KEYS, onWriteError } from './lib/supabase';
 import { hashPassword, verifyPassword, isLegacyPlain } from './lib/auth';
 import { GuidePage } from './pages/GuidePage';
 import { HomePage } from './pages/HomePage';
@@ -56,27 +56,52 @@ export function App() {
   const [categories, setCategories] = useState(() => store.read('skeart_categories', CATEGORIES));
   const [users, setUsers] = useState(() => store.read('skeart_users', []));
 
+  // 클라우드에서 마지막으로 읽은 값(키별 JSON). 값이 그대로면 다시 쓰지 않습니다.
+  // 이게 없으면 페이지가 열릴 때마다 13개 키를 전부 되써서, 방문자 모두가 DB에 쓰게 됩니다.
+  const cloudSnap = useRef({});
+  // 클라우드 로드 실패 여부 — 실패하면 저장을 아예 막습니다(오래된 값이 덮어쓰는 사고 방지).
+  const [cloudFailed, setCloudFailed] = useState(false);
+
+  const saveCloud = (key, val) => {
+    const json = JSON.stringify(val);
+    if (cloudSnap.current[key] === json) return;  // 변경 없음 → 쓰지 않음
+    cloudSnap.current[key] = json;
+    store.write(key, val);
+  };
+
   // ── Supabase 클라우드 데이터 초기 로드 (설정 시) ──
   useEffect(() => {
     if (!sb) { setLoaded(true); return; }
     store.cloudLoad().then(map => {
-      if (map) {
-        if (map.skeart_equipment_v2)    setEquipment(map.skeart_equipment_v2);
-        if (map.skeart_rentals_v2)      setRentals(map.skeart_rentals_v2);
-        if (map.skeart_orders)          setOrders(map.skeart_orders);
-        if (map.skeart_homebanner_v2)   setHomeBanner(map.skeart_homebanner_v2);
-        if (map.skeart_eventbanners_v2) setEventBanners(map.skeart_eventbanners_v2);
-        if (map.skeart_sets)            setSets(map.skeart_sets);
-        if (map.skeart_bestids)         setBestIds(map.skeart_bestids);
-        if (map.skeart_notices)         setNotices(map.skeart_notices);
-        if (map.skeart_brands)          setBrands(map.skeart_brands);
-        if (map.skeart_discounts)       setDiscounts(map.skeart_discounts);
-        if (map.skeart_works)           setWorks(map.skeart_works);
-        if (map.skeart_categories)      setCategories(map.skeart_categories);
-        if (map.skeart_users)           setUsers(map.skeart_users);
+      if (!map) {
+        // 로드 실패(네트워크 등). 여기서 저장을 열어주면 이 브라우저에 남아 있던
+        // 예전 값이 클라우드를 덮어써 관리자 수정본이 사라집니다. 그래서 막아둡니다.
+        setCloudFailed(true);
+        return;
       }
-      setLoaded(true);  // 로드 완료 후에만 저장(write) 허용
+      if (map.skeart_equipment_v2    !== undefined) setEquipment(map.skeart_equipment_v2);
+      if (map.skeart_rentals_v2      !== undefined) setRentals(map.skeart_rentals_v2);
+      if (map.skeart_orders          !== undefined) setOrders(map.skeart_orders);
+      if (map.skeart_homebanner_v2   !== undefined) setHomeBanner(map.skeart_homebanner_v2);
+      if (map.skeart_eventbanners_v2 !== undefined) setEventBanners(map.skeart_eventbanners_v2);
+      if (map.skeart_sets            !== undefined) setSets(map.skeart_sets);
+      if (map.skeart_bestids         !== undefined) setBestIds(map.skeart_bestids);
+      if (map.skeart_notices         !== undefined) setNotices(map.skeart_notices);
+      if (map.skeart_brands          !== undefined) setBrands(map.skeart_brands);
+      if (map.skeart_discounts       !== undefined) setDiscounts(map.skeart_discounts);
+      if (map.skeart_works           !== undefined) setWorks(map.skeart_works);
+      if (map.skeart_categories      !== undefined) setCategories(map.skeart_categories);
+      if (map.skeart_users           !== undefined) setUsers(map.skeart_users);
+
+      // 방금 읽은 값을 스냅샷에 기록 → 로드 직후의 불필요한 되쓰기를 막습니다.
+      CLOUD_KEYS.forEach(k => { if (map[k] !== undefined) cloudSnap.current[k] = JSON.stringify(map[k]); });
+      setLoaded(true);  // 로드 성공 후에만 저장(write) 허용
     });
+  }, []);
+
+  // 저장 실패를 관리자에게 그대로 알립니다 (예전에는 조용히 무시됐습니다).
+  useEffect(() => {
+    onWriteError((key, msg) => showToast(`저장 실패 · ${key} — ${msg}`));
   }, []);
 
   // 관리자 판별: 세션의 role 우선, 없으면 users 목록/ADMIN_EMAIL로 보정(기존 세션 호환)
@@ -95,20 +120,20 @@ export function App() {
   }, [equipment]);
   useEffect(() => { store.write('skeart_cart', cart); }, [cart]);
   useEffect(() => { store.write('skeart_wishlist', wishlist); }, [wishlist]);
-  useEffect(() => { if (loaded) store.write('skeart_orders', orders); }, [orders, loaded]);
+  useEffect(() => { if (loaded) saveCloud('skeart_orders', orders); }, [orders, loaded]);
   useEffect(() => { store.write('skeart_session', user); }, [user]);
-  useEffect(() => { if (loaded) store.write('skeart_equipment_v2', equipment); }, [equipment, loaded]);
-  useEffect(() => { if (loaded) store.write('skeart_rentals_v2', rentals); }, [rentals, loaded]);
-  useEffect(() => { if (loaded) store.write('skeart_homebanner_v2', homeBanner); }, [homeBanner, loaded]);
-  useEffect(() => { if (loaded) store.write('skeart_eventbanners_v2', eventBanners); }, [eventBanners, loaded]);
-  useEffect(() => { if (loaded) store.write('skeart_sets', sets); }, [sets, loaded]);
-  useEffect(() => { if (loaded) store.write('skeart_bestids', bestIds); }, [bestIds, loaded]);
-  useEffect(() => { if (loaded) store.write('skeart_notices', notices); }, [notices, loaded]);
-  useEffect(() => { if (loaded) store.write('skeart_brands', brands); }, [brands, loaded]);
-  useEffect(() => { if (loaded) store.write('skeart_discounts', discounts); }, [discounts, loaded]);
-  useEffect(() => { if (loaded) store.write('skeart_works', works); }, [works, loaded]);
-  useEffect(() => { if (loaded) store.write('skeart_categories', categories); }, [categories, loaded]);
-  useEffect(() => { if (loaded) store.write('skeart_users', users); }, [users, loaded]);
+  useEffect(() => { if (loaded) saveCloud('skeart_equipment_v2', equipment); }, [equipment, loaded]);
+  useEffect(() => { if (loaded) saveCloud('skeart_rentals_v2', rentals); }, [rentals, loaded]);
+  useEffect(() => { if (loaded) saveCloud('skeart_homebanner_v2', homeBanner); }, [homeBanner, loaded]);
+  useEffect(() => { if (loaded) saveCloud('skeart_eventbanners_v2', eventBanners); }, [eventBanners, loaded]);
+  useEffect(() => { if (loaded) saveCloud('skeart_sets', sets); }, [sets, loaded]);
+  useEffect(() => { if (loaded) saveCloud('skeart_bestids', bestIds); }, [bestIds, loaded]);
+  useEffect(() => { if (loaded) saveCloud('skeart_notices', notices); }, [notices, loaded]);
+  useEffect(() => { if (loaded) saveCloud('skeart_brands', brands); }, [brands, loaded]);
+  useEffect(() => { if (loaded) saveCloud('skeart_discounts', discounts); }, [discounts, loaded]);
+  useEffect(() => { if (loaded) saveCloud('skeart_works', works); }, [works, loaded]);
+  useEffect(() => { if (loaded) saveCloud('skeart_categories', categories); }, [categories, loaded]);
+  useEffect(() => { if (loaded) saveCloud('skeart_users', users); }, [users, loaded]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
   // 세트는 EQUIPMENT에 없으므로 set_ 접두사도 유효 처리
@@ -268,6 +293,12 @@ export function App() {
       {cartOpen && <CartPanel cart={cart} onClose={() => setCartOpen(false)} onUpdate={updateCart} onRemove={removeFromCart} onClear={clearCart} onRecordOrder={recordOrder} user={user} onAuthOpen={() => setAuthOpen(true)}/>}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} onLogin={login} onSignup={signup}/>}
       {page !== 'admin' && <NoticePopup />}
+      {cloudFailed && (
+        <div className="fixed top-0 left-0 right-0 z-[70] bg-ink text-bg px-5 py-2.5 text-[13px] text-center">
+          서버에서 데이터를 불러오지 못했습니다. 수정 내용이 저장되지 않으니{' '}
+          <button onClick={() => window.location.reload()} className="underline font-bold">새로고침</button>해 주세요.
+        </div>
+      )}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-ink text-bg px-5 py-3 text-[13px] fade-in shadow-2xl font-mono tracking-wider">
           {toast}

@@ -37,17 +37,29 @@ export const CLOUD_KEYS = [
 
 
 
+// 저장 실패를 화면에 알리기 위한 핸들러 (App에서 등록).
+// 예전에는 console.warn만 해서, 저장이 실패해도 관리자에게는 "저장됨"으로 보였습니다.
+let writeErrorHandler = null;
+export const onWriteError = (fn) => { writeErrorHandler = fn; };
+const reportWriteError = (key, msg) => {
+  console.warn('[SKARTE] 저장 실패:', key, msg);
+  if (writeErrorHandler) writeErrorHandler(key, msg);
+};
+
 export const store = {
   read(key, fallback) { try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; } catch (e) { return fallback; } },
   write(key, val) {
-    try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+    try { localStorage.setItem(key, JSON.stringify(val)); }
+    catch (e) { reportWriteError(key, '브라우저 저장 공간이 가득 찼습니다.'); }
     if (sb && CLOUD_KEYS.includes(key)) {
-      sb.from('site_data').upsert({ key, value: val, updated_at: new Date().toISOString() })
+      return sb.from('site_data').upsert({ key, value: val, updated_at: new Date().toISOString() })
         .then(({ error }) => {
-          if (error) console.warn('[SKARTE] Supabase 저장 실패:', key, error.message);
-          else console.info('[SKARTE] Supabase 저장됨:', key);
+          if (error) { reportWriteError(key, error.message); return false; }
+          console.info('[SKARTE] Supabase 저장됨:', key);
+          return true;
         });
     }
+    return Promise.resolve(true);
   },
   // 단일 키를 클라우드에서 최신값으로 조회 (회원 중복확인·로그인용)
   async cloudReadKey(key) {
