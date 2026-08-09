@@ -268,7 +268,8 @@ export function App() {
     <CategoriesCtx.Provider value={categories}>
     <SiteCtx.Provider value={{ homeBanner, eventBanners, sets, bestIds, notices, brands, discounts, works }}>
       <Nav page={page} setPage={setPage} setCategory={setCategory} cartCount={cartCount}
-        onCartOpen={openCart} user={user} onAuthOpen={() => setAuthOpen(true)} isAdmin={isAdmin}/>
+        onCartOpen={openCart} user={user} onAuthOpen={() => setAuthOpen(true)} isAdmin={isAdmin}
+        onSearch={(q) => { setGearSearch(q); setCategory('all'); setPage('gear'); }}/>
       <main className="min-h-screen">
         {page === 'home'  && <HomePage setPage={setPage} setCategory={setCategory} onBrand={(q) => { setGearSearch(q); setCategory('all'); setPage('gear'); }}/>}
         {page === 'gear'  && <GearPage category={category} setCategory={setCategory} onItemClick={setSelectedItem} wishlist={wishlist} onToggleWish={toggleWish} query={gearSearch} setQuery={setGearSearch} rentals={rentals}/>}

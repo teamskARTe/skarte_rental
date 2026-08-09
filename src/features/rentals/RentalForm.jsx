@@ -1,9 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Ico } from '../../components/Ico';
 
+// 한 사람(또는 팀) 이름으로 여러 장비를 같은 기간에 한 번에 등록합니다.
+// 저장 시 장비별로 rental 한 건씩 만들어 배열로 넘깁니다.
 export function RentalForm({ equipment, defaultStart, defaultGearId, onSave, onClose }) {
-  const [form, setForm] = useState({ gearId: defaultGearId || equipment[0]?.id || '', qty:1, renter:'', start: defaultStart, days:1 });
+  const first = defaultGearId || equipment[0]?.id || '';
+  const [renter, setRenter] = useState('');
+  const [start, setStart] = useState(defaultStart);
+  const [startTime, setStartTime] = useState('10:00');
+  const [days, setDays] = useState(1);
+  const [endTime, setEndTime] = useState('18:00');
+  const [rows, setRows] = useState(first ? [{ gearId: first, qty: 1 }] : []);
+  const [addGearId, setAddGearId] = useState('');
   const [err, setErr] = useState('');
+
   useEffect(() => {
     const esc = (e) => e.key === 'Escape' && onClose();
     document.addEventListener('keydown', esc);
@@ -11,60 +21,127 @@ export function RentalForm({ equipment, defaultStart, defaultGearId, onSave, onC
     return () => { document.removeEventListener('keydown', esc); document.body.style.overflow = ''; };
   }, []);
 
+  // 반납일 = 시작일 + (일수 - 1). toISOString은 UTC라 하루 밀리므로 로컬 기준으로 만듭니다.
+  const returnDate = (() => {
+    const d = parseInt(days) || 0;
+    if (!start || d < 1) return '';
+    const dt = new Date(start + 'T00:00:00');
+    dt.setDate(dt.getDate() + d - 1);
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  })();
+
+  const gearOf = (id) => equipment.find(e => e.id === id);
+  const patchRow = (i, patch) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, ...patch } : r));
+  const removeRow = (i) => setRows(rs => rs.filter((_, idx) => idx !== i));
+  const addRow = () => {
+    if (!addGearId) return;
+    setRows(rs => [...rs, { gearId: addGearId, qty: 1 }]);
+    setAddGearId('');
+  };
+
   const submit = () => {
-    if (!form.gearId) return setErr('장비를 선택해 주세요.');
-    if (!form.renter.trim()) return setErr('대여자명을 입력해 주세요.');
-    if (!form.start) return setErr('대여 시작일을 선택해 주세요.');
-    onSave({
-      id: 'r' + Date.now().toString().slice(-6),
-      gearId: form.gearId,
-      qty: Math.max(1, parseInt(form.qty)||1),
-      renter: form.renter.trim(),
-      start: form.start,
-      days: Math.max(1, parseInt(form.days)||1),
-    });
+    if (!renter.trim()) return setErr('대여자명을 입력해 주세요.');
+    if (!start) return setErr('대여 시작일을 선택해 주세요.');
+    if (rows.length === 0) return setErr('장비를 한 개 이상 추가해 주세요.');
+    const base = Date.now().toString().slice(-6);
+    const d = Math.max(1, parseInt(days) || 1);
+    onSave(rows.map((r, i) => ({
+      id: `r${base}_${i}`,
+      gearId: r.gearId,
+      qty: Math.max(1, parseInt(r.qty) || 1),
+      renter: renter.trim(),
+      start,
+      days: d,
+      startTime,
+      endTime,
+      group: `g${base}`,   // 같은 등록건 묶음 표시용
+    })));
   };
 
   return (
     <div className="fixed inset-0 z-50 modal-backdrop flex items-end md:items-center justify-center p-0 md:p-6 fade-in" onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} className="bg-bg w-full md:max-w-md border border-ink">
-        <div className="border-b border-line px-6 py-4 flex items-center justify-between">
+      <div onClick={e=>e.stopPropagation()} className="bg-bg w-full md:max-w-lg border border-ink max-h-[92vh] flex flex-col">
+        <div className="border-b border-line px-6 py-4 flex items-center justify-between shrink-0">
           <div className="font-mono text-[12px] uppercase tracking-wider text-muted">대여 일정 추가</div>
           <button onClick={onClose} className="p-1 hover:rotate-90 transition-transform"><Ico.close className="w-5 h-5"/></button>
         </div>
-        <div className="px-6 md:px-8 py-6 space-y-4">
+
+        <div className="px-6 md:px-8 py-6 space-y-4 overflow-y-auto">
           <div>
-            <label className="font-mono text-[11px] uppercase tracking-wider text-muted">장비</label>
-            <select value={form.gearId} onChange={e=>setForm({...form,gearId:e.target.value})}
-              className="w-full border border-line focus:border-ink outline-none px-3 py-3 text-[14px] mt-1 bg-transparent">
-              {equipment.map(e => <option key={e.id} value={e.id}>{e.name} (재고 {e.stock})</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="font-mono text-[11px] uppercase tracking-wider text-muted">수량 (대)</label>
-              <input type="number" min="1" value={form.qty} onChange={e=>setForm({...form,qty:e.target.value})}
-                className="w-full border border-line focus:border-ink outline-none px-3 py-3 text-[14px] mt-1 bg-transparent"/>
-            </div>
-            <div>
-              <label className="font-mono text-[11px] uppercase tracking-wider text-muted">대여 일수</label>
-              <input type="number" min="1" value={form.days} onChange={e=>setForm({...form,days:e.target.value})}
-                className="w-full border border-line focus:border-ink outline-none px-3 py-3 text-[14px] mt-1 bg-transparent"/>
-            </div>
-          </div>
-          <div>
-            <label className="font-mono text-[11px] uppercase tracking-wider text-muted">대여자</label>
-            <input value={form.renter} onChange={e=>setForm({...form,renter:e.target.value})}
-              onKeyDown={e=>e.key==='Enter'&&submit()}
+            <label className="font-mono text-[11px] uppercase tracking-wider text-muted">대여자 · 팀명</label>
+            <input value={renter} onChange={e=>setRenter(e.target.value)}
               className="w-full border border-line focus:border-ink outline-none px-3 py-3 text-[14px] mt-1 bg-transparent" placeholder="이름 또는 팀명"/>
           </div>
+
+          {/* 대여 시작 */}
           <div>
-            <label className="font-mono text-[11px] uppercase tracking-wider text-muted">대여 시작일</label>
-            <input type="date" value={form.start} onChange={e=>setForm({...form,start:e.target.value})}
-              className="w-full border border-line focus:border-ink outline-none px-3 py-3 text-[14px] mt-1 bg-transparent"/>
+            <label className="font-mono text-[11px] uppercase tracking-wider text-muted">대여 시작 (날짜 · 시간)</label>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <input type="date" value={start} onChange={e=>setStart(e.target.value)}
+                className="w-full border border-line focus:border-ink outline-none px-3 py-3 text-[14px] bg-transparent"/>
+              <input type="time" value={startTime} onChange={e=>setStartTime(e.target.value)}
+                className="w-full border border-line focus:border-ink outline-none px-3 py-3 text-[14px] bg-transparent"/>
+            </div>
           </div>
+
+          {/* 반납 */}
+          <div>
+            <label className="font-mono text-[11px] uppercase tracking-wider text-muted">대여 일수 · 반납 시간</label>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <input type="number" min="1" max="365" value={days} onChange={e=>setDays(e.target.value)}
+                className="w-full border border-line focus:border-ink outline-none px-3 py-3 text-[14px] bg-transparent"/>
+              <input type="time" value={endTime} onChange={e=>setEndTime(e.target.value)}
+                className="w-full border border-line focus:border-ink outline-none px-3 py-3 text-[14px] bg-transparent"/>
+            </div>
+            <p className="text-[12px] text-muted mt-1.5">
+              반납일 <span className="font-mono text-ink">{returnDate || '—'}</span> {endTime} (자동 계산)
+            </p>
+          </div>
+
+          {/* 장비 목록 */}
+          <div className="pt-2 border-t border-line">
+            <label className="font-mono text-[11px] uppercase tracking-wider text-muted">장비 목록 ({rows.length})</label>
+            {rows.length === 0 && (
+              <div className="text-[13px] text-muted border border-line px-3 py-4 mt-1.5">아래에서 장비를 추가해 주세요.</div>
+            )}
+            <div className="space-y-1.5 mt-1.5">
+              {rows.map((r, i) => {
+                const g = gearOf(r.gearId);
+                return (
+                  <div key={i} className="flex items-center gap-1.5 border border-line px-2 py-2">
+                    <select value={r.gearId} onChange={e=>patchRow(i, { gearId: e.target.value })}
+                      className="flex-1 min-w-0 text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-transparent">
+                      {equipment.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                    <label className="text-[11px] text-muted shrink-0">수량</label>
+                    <input type="number" min="1" value={r.qty} onChange={e=>patchRow(i, { qty: e.target.value })}
+                      className="w-14 text-[13px] font-mono text-center border border-line focus:border-ink outline-none px-1 py-1.5 bg-transparent"/>
+                    <span className="font-mono text-[11px] text-muted shrink-0 w-10 text-right">/ {g ? g.stock : '-'}</span>
+                    <button onClick={() => removeRow(i)} className="text-muted hover:text-ink p-1 shrink-0" aria-label="삭제">
+                      <Ico.trash className="w-3.5 h-3.5"/>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex gap-1.5 mt-2">
+              <select value={addGearId} onChange={e=>setAddGearId(e.target.value)}
+                className="flex-1 min-w-0 text-[13px] border border-line focus:border-ink outline-none px-2 py-2 bg-transparent">
+                <option value="">+ 장비 추가…</option>
+                {equipment.map(e => <option key={e.id} value={e.id}>{e.name} (재고 {e.stock})</option>)}
+              </select>
+              <button onClick={addRow} disabled={!addGearId}
+                className="shrink-0 text-[12px] border border-ink px-4 py-2 hover-lift disabled:opacity-40 disabled:cursor-not-allowed">추가</button>
+            </div>
+          </div>
+
           {err && <div className="text-[13px] text-red-600">{err}</div>}
-          <button onClick={submit} className="w-full bg-ink text-bg py-4 text-[13px] hover-lift mt-2">일정 등록</button>
+        </div>
+
+        <div className="border-t border-line px-6 md:px-8 py-4 shrink-0">
+          <button onClick={submit} className="w-full bg-ink text-bg py-4 text-[13px] hover-lift">
+            {rows.length > 1 ? `장비 ${rows.length}개 일정 등록` : '일정 등록'}
+          </button>
         </div>
       </div>
     </div>

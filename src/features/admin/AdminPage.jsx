@@ -5,7 +5,7 @@ import { DEFAULT_EQUIPMENT, isAdminUser, roleLabel, BRANCHES, branchName } from 
 import { EquipDetailModal } from './EquipDetailModal';
 import { EquipForm } from './EquipForm';
 import { RentalCalendar } from '../rentals/RentalCalendar';
-import { priceLabel, won } from '../../lib/format';
+import { calcPrice, priceLabel, won } from '../../lib/format';
 import { youtubeId } from '../content/WorksSection';
 
 export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOrderStatus, rentals, setRentals,
@@ -223,7 +223,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
             <h2 className="font-display text-2xl md:text-3xl leading-none mb-5">대여 일정</h2>
             <RentalCalendar
               rentals={rentals} equipment={equipment}
-              onAdd={(r) => setRentals(prev => [...prev, r])}
+              onAdd={(list) => setRentals(prev => [...prev, ...list])}
               onRemove={(id) => setRentals(prev => prev.filter(x => x.id !== id))}/>
           </div>
         </div>
@@ -1035,7 +1035,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
 
       {editing && <EquipForm form={editing} onSave={saveItem} onClose={() => setEditing(null)}/>}
       {viewing && <EquipDetailModal item={viewing} rentals={rentals} equipment={equipment}
-        onAdd={(r) => setRentals(prev => [...prev, r])}
+        onAdd={(list) => setRentals(prev => [...prev, ...list])}
         onRemove={(id) => setRentals(prev => prev.filter(x => x.id !== id))}
         onEdit={startEdit} onClose={() => setViewing(null)}/>}
     </section>

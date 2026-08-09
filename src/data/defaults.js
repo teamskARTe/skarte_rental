@@ -202,7 +202,7 @@ export const COMPANY = {
   address: '인천광역시 연수구 송도미래로 30',
   addressDetail: '송도 BRC 스마트밸리 지식산업센터 E동 1905-A호',
   tel: '010-5949-0686',
-  email: 'skartefilm@naver.com',
+  email: 'team.skarte@gmail.com',
   instagram: 'skarte_rental',
   bank: '농협',
   account: '302-2169-3030-71',

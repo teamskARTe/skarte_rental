@@ -142,7 +142,8 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
         )}
       </div>
 
-      {adding && <RentalForm equipment={equipment} defaultStart={todayStr} defaultGearId={filterGearId} onSave={(r) => { onAdd(r); setAdding(false); }} onClose={() => setAdding(false)}/>}
+      {adding && <RentalForm equipment={equipment} defaultStart={todayStr} defaultGearId={filterGearId}
+        onSave={(list) => { onAdd(list); setAdding(false); }} onClose={() => setAdding(false)}/>}
 
       {/* 날짜 상세 모달 */}
       {selected && (
@@ -155,9 +156,14 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
             <div className="px-6 py-5 space-y-3 max-h-[60vh] overflow-y-auto">
               {selected.items.map(r => (
                 <div key={r.id} className="flex items-start justify-between gap-3 border-b border-line pb-3">
-                  <div>
+                  <div className="min-w-0">
                     <div className="font-display text-lg leading-tight">{gearName(r.gearId)} <span className="font-mono text-[13px] text-muted">×{r.qty}</span></div>
-                    <div className="text-[13px] text-muted">{readOnly ? '예약됨' : r.renter} · {r.start}부터 {r.days}일</div>
+                    <div className="text-[13px] text-muted">{readOnly ? '예약됨' : r.renter} · {r.days}일</div>
+                    {!readOnly && (
+                      <div className="font-mono text-[12px] text-muted mt-0.5">
+                        {r.start}{r.startTime ? ` ${r.startTime}` : ''} → {rentalEndStr(r)}{r.endTime ? ` ${r.endTime}` : ''}
+                      </div>
+                    )}
                   </div>
                   {!readOnly && (
                     <button onClick={() => { onRemove(r.id); setSelected(s => ({ ...s, items: s.items.filter(x=>x.id!==r.id) })); }}
