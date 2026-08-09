@@ -41,38 +41,76 @@ export const CLOUD_KEYS = [
 // 예전에는 console.warn만 해서, 저장이 실패해도 관리자에게는 "저장됨"으로 보였습니다.
 let writeErrorHandler = null;
 export const onWriteError = (fn) => { writeErrorHandler = fn; };
-const reportWriteError = (key, msg) => {
-  console.warn('[SKARTE] 저장 실패:', key, msg);
-  if (writeErrorHandler) writeErrorHandler(key, msg);
+
+// 마지막 로드 실패 원인 (화면 배너에 코드까지 표시하기 위해 보관)
+let lastLoadError = null;
+export const getLastLoadError = () => lastLoadError;
+
+// 실패 원인을 코드까지 남깁니다. 화면에 그대로 띄워 문의 시 전달할 수 있게 합니다.
+const reportWriteError = (key, err) => {
+  const info = {
+    key,
+    message: (err && err.message) || String(err || '알 수 없는 오류'),
+    code:    (err && (err.code || err.statusCode)) || '',
+    status:  (err && (err.status || err.statusCode)) || '',
+    hint:    (err && err.hint) || '',
+    details: (err && err.details) || '',
+    at: new Date().toISOString(),
+  };
+  console.warn('[SKARTE] 저장 실패:', info);
+  if (writeErrorHandler) writeErrorHandler(info);
+  return info;
 };
 
 export const store = {
   read(key, fallback) { try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; } catch (e) { return fallback; } },
   write(key, val) {
     try { localStorage.setItem(key, JSON.stringify(val)); }
-    catch (e) { reportWriteError(key, '브라우저 저장 공간이 가득 찼습니다.'); }
+    catch (e) {
+      reportWriteError(key, { message: '이 브라우저의 저장 공간이 가득 찼습니다.', code: 'LOCAL_QUOTA' });
+    }
     if (sb && CLOUD_KEYS.includes(key)) {
       return sb.from('site_data').upsert({ key, value: val, updated_at: new Date().toISOString() })
         .then(({ error }) => {
-          if (error) { reportWriteError(key, error.message); return false; }
+          if (error) { reportWriteError(key, error); return false; }
           console.info('[SKARTE] Supabase 저장됨:', key);
           return true;
-        });
+        })
+        // 네트워크 자체가 끊기면 위 then이 아니라 여기로 옵니다 (fetch 실패).
+        .catch(e => { reportWriteError(key, { message: e.message || '서버에 연결하지 못했습니다.', code: 'NETWORK' }); return false; });
     }
     return Promise.resolve(true);
   },
   // 단일 키를 클라우드에서 최신값으로 조회 (회원 중복확인·로그인용)
   async cloudReadKey(key) {
     if (!sb) return null;
-    const { data, error } = await sb.from('site_data').select('value').eq('key', key).maybeSingle();
-    if (error) { console.warn('Supabase 단일조회 실패:', key, error.message); return null; }
-    return data ? data.value : [];
+    try {
+      const { data, error } = await sb.from('site_data').select('value').eq('key', key).maybeSingle();
+      if (error) { console.warn('Supabase 단일조회 실패:', key, error.message); return null; }
+      return data ? data.value : [];
+    } catch (e) {
+      console.warn('Supabase 단일조회 실패(네트워크):', key, e.message);
+      return null;
+    }
   },
   // 앱 시작 시 클라우드 데이터 일괄 로드
   async cloudLoad() {
     if (!sb) return null;
-    const { data, error } = await sb.from('site_data').select('key,value');
-    if (error) { console.warn('Supabase 로드 실패:', error.message); return null; }
+    let data, error;
+    try {
+      ({ data, error } = await sb.from('site_data').select('key,value'));
+    } catch (e) {
+      // 네트워크가 끊기면 예외로 떨어집니다. null을 돌려줘야 호출부가 실패를 인지합니다.
+      console.warn('Supabase 로드 실패(네트워크):', e.message);
+      lastLoadError = { message: e.message || '서버에 연결하지 못했습니다.', code: 'NETWORK' };
+      return null;
+    }
+    if (error) {
+      console.warn('Supabase 로드 실패:', error.message);
+      lastLoadError = { message: error.message, code: error.code || '', status: error.status || '' };
+      return null;
+    }
+    lastLoadError = null;
     const map = {};
     (data || []).forEach(r => { map[r.key] = r.value; });
     Object.entries(map).forEach(([k, v]) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} });
@@ -111,7 +149,7 @@ export async function uploadBlob(blob, ext = 'jpg') {
     upsert: false,
     contentType: blob.type || 'image/jpeg',
   });
-  if (error) throw new Error(error.message);
+  if (error) { const e = new Error(error.message); e.statusCode = error.statusCode || error.status; throw e; }
   const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }

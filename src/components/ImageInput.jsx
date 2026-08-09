@@ -78,7 +78,10 @@ export function ImageInput({ value, onChange, placeholder = 'https://...', label
         onChange(dataUrl);
       }
     } catch (er) {
-      setErr(er.message || '업로드 실패');
+      // 원인 코드까지 남겨야 실패 시 무엇 때문인지 알 수 있습니다.
+      const code = er.statusCode || er.status || er.code || '';
+      setErr(`업로드 실패${code ? ` [${code}]` : ''} · ${er.message || '알 수 없는 오류'}`);
+      console.warn('[SKARTE] 이미지 업로드 실패:', er);
     } finally { setBusy(false); }
   };
 

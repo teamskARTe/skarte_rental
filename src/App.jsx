@@ -12,8 +12,9 @@ import { CartPanel } from './features/cart/CartPanel';
 import { NoticePopup } from './features/content/NoticePopup';
 import { DetailModal } from './features/equipment/DetailModal';
 import { GearPage } from './features/equipment/GearPage';
-import { sb, store, CLOUD_KEYS, onWriteError } from './lib/supabase';
+import { sb, store, CLOUD_KEYS, onWriteError, getLastLoadError } from './lib/supabase';
 import { hashPassword, verifyPassword, isLegacyPlain } from './lib/auth';
+import { copyText } from './lib/format';
 import { GuidePage } from './pages/GuidePage';
 import { HomePage } from './pages/HomePage';
 import { ExtraGearPage } from './pages/ExtraGearPage';
@@ -60,7 +61,9 @@ export function App() {
   // 이게 없으면 페이지가 열릴 때마다 13개 키를 전부 되써서, 방문자 모두가 DB에 쓰게 됩니다.
   const cloudSnap = useRef({});
   // 클라우드 로드 실패 여부 — 실패하면 저장을 아예 막습니다(오래된 값이 덮어쓰는 사고 방지).
-  const [cloudFailed, setCloudFailed] = useState(false);
+  const [cloudFailed, setCloudFailed] = useState(null);   // null | 오류정보 객체
+  // 저장 실패 기록 (최근 것부터). 화면에 남겨두고 복사할 수 있게 합니다.
+  const [saveErrors, setSaveErrors] = useState([]);
 
   const saveCloud = (key, val) => {
     const json = JSON.stringify(val);
@@ -76,7 +79,7 @@ export function App() {
       if (!map) {
         // 로드 실패(네트워크 등). 여기서 저장을 열어주면 이 브라우저에 남아 있던
         // 예전 값이 클라우드를 덮어써 관리자 수정본이 사라집니다. 그래서 막아둡니다.
-        setCloudFailed(true);
+        setCloudFailed(getLastLoadError() || { message: '서버에서 데이터를 불러오지 못했습니다.', code: 'UNKNOWN' });
         return;
       }
       if (map.skeart_equipment_v2    !== undefined) setEquipment(map.skeart_equipment_v2);
@@ -96,12 +99,15 @@ export function App() {
       // 방금 읽은 값을 스냅샷에 기록 → 로드 직후의 불필요한 되쓰기를 막습니다.
       CLOUD_KEYS.forEach(k => { if (map[k] !== undefined) cloudSnap.current[k] = JSON.stringify(map[k]); });
       setLoaded(true);  // 로드 성공 후에만 저장(write) 허용
+    }).catch(e => {
+      // cloudLoad 내부에서 못 잡은 예외까지 여기서 받아냅니다.
+      setCloudFailed({ message: e.message || '알 수 없는 오류', code: 'LOAD_EXCEPTION' });
     });
   }, []);
 
   // 저장 실패를 관리자에게 그대로 알립니다 (예전에는 조용히 무시됐습니다).
   useEffect(() => {
-    onWriteError((key, msg) => showToast(`저장 실패 · ${key} — ${msg}`));
+    onWriteError((info) => setSaveErrors(prev => [info, ...prev].slice(0, 5)));
   }, []);
 
   // 관리자 판별: 세션의 role 우선, 없으면 users 목록/ADMIN_EMAIL로 보정(기존 세션 호환)
@@ -295,8 +301,43 @@ export function App() {
       {page !== 'admin' && <NoticePopup />}
       {cloudFailed && (
         <div className="fixed top-0 left-0 right-0 z-[70] bg-ink text-bg px-5 py-2.5 text-[13px] text-center">
-          서버에서 데이터를 불러오지 못했습니다. 수정 내용이 저장되지 않으니{' '}
+          서버에서 데이터를 불러오지 못해 <span className="font-bold">저장이 막혀 있습니다</span>.{' '}
           <button onClick={() => window.location.reload()} className="underline font-bold">새로고침</button>해 주세요.
+          <span className="block font-mono text-[11px] text-bg/60 mt-0.5">
+            [{cloudFailed.code || 'ERROR'}{cloudFailed.status ? ` ${cloudFailed.status}` : ''}] {cloudFailed.message}
+          </span>
+        </div>
+      )}
+
+      {/* 저장 실패 기록 — 사라지지 않고 남습니다. 복사해서 그대로 전달하실 수 있어요. */}
+      {saveErrors.length > 0 && (
+        <div className="fixed bottom-4 right-4 z-[70] w-[min(92vw,420px)] border border-ink bg-bg shadow-2xl">
+          <div className="flex items-center justify-between px-4 py-2.5 bg-ink text-bg">
+            <span className="text-[13px] font-bold">저장 실패 {saveErrors.length}건</span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => copyText(saveErrors.map(e =>
+                  `[${e.code || 'ERROR'}${e.status ? ' ' + e.status : ''}] ${e.key}\n${e.message}${e.hint ? `\nhint: ${e.hint}` : ''}${e.details ? `\ndetails: ${e.details}` : ''}\n${e.at}`
+                ).join('\n\n')).then(ok => showToast(ok ? '오류 내용이 복사되었습니다' : '복사에 실패했습니다'))}
+                className="text-[12px] underline">복사</button>
+              <button onClick={() => setSaveErrors([])} className="text-[12px] underline">닫기</button>
+            </div>
+          </div>
+          <div className="max-h-[40vh] overflow-y-auto divide-y divide-line">
+            {saveErrors.map((e, i) => (
+              <div key={i} className="px-4 py-3">
+                <div className="font-mono text-[12px] font-bold text-ink">
+                  [{e.code || 'ERROR'}{e.status ? ` ${e.status}` : ''}] {e.key}
+                </div>
+                <div className="text-[13px] mt-0.5 break-words">{e.message}</div>
+                {e.hint && <div className="text-[12px] text-muted mt-0.5 break-words">hint · {e.hint}</div>}
+                {e.details && <div className="text-[12px] text-muted mt-0.5 break-words">details · {e.details}</div>}
+                <div className="font-mono text-[11px] text-muted mt-1">{e.at}</div>
+              </div>
+            ))}
+          </div>
+          <div className="px-4 py-2.5 border-t border-line text-[12px] text-muted">
+            이 내용을 그대로 전달해 주시면 원인을 확인할 수 있습니다.
+          </div>
         </div>
       )}
       {toast && (
