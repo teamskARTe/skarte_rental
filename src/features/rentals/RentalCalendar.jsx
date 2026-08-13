@@ -13,16 +13,41 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
   const gearName = (id) => (equipment.find(e => e.id === id) || {}).name || id;
   const short = (s) => s.length > 10 ? s.slice(0,9) + '…' : s;
 
+  // 예약자·대여기간(시작일+일수)이 같은 건들을 한 예약으로 묶어 한 줄로 표시합니다.
+  const groups = useMemo(() => {
+    const map = new Map();
+    scoped.forEach(r => {
+      const key = `${r.renter || ''}|${r.start}|${r.days}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          key, renter: r.renter, start: r.start, days: r.days,
+          startTime: r.startTime, endTime: r.endTime, items: [],
+        });
+      }
+      const g = map.get(key);
+      g.items.push(r);
+      // 시간 정보는 먼저 들어온 값을 유지하되, 비어 있으면 채웁니다.
+      if (!g.startTime && r.startTime) g.startTime = r.startTime;
+      if (!g.endTime && r.endTime) g.endTime = r.endTime;
+    });
+    return [...map.values()];
+  }, [scoped]);
+
+  const totalQty = (g) => g.items.reduce((s, r) => s + (parseInt(r.qty) || 0), 0);
+  // 묶음 라벨: 장비가 하나면 장비명, 여러 개면 "장비명 외 N종"
+  const groupLabel = (g) => {
+    if (g.items.length === 1) return `${short(gearName(g.items[0].gearId))} ×${g.items[0].qty}`;
+    return `${short(gearName(g.items[0].gearId))} 외 ${g.items.length - 1}종`;
+  };
+
   const fmt = (day) => `${cur.y}-${String(cur.m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
   const onDay = (day) => {
-    const ds = fmt(day);
-    const d = new Date(ds);
-    return scoped.filter(r => {
-      const s = new Date(r.start); const e = new Date(s); e.setDate(e.getDate() + r.days - 1);
+    const d = new Date(fmt(day));
+    return groups.filter(g => {
+      const s = new Date(g.start); const e = new Date(s); e.setDate(e.getDate() + g.days - 1);
       return d >= s && d <= e;
     });
   };
-  const isStart = (r, day) => r.start === fmt(day);
 
   const startWeekday = new Date(cur.y, cur.m, 1).getDay();
   const daysInMonth = new Date(cur.y, cur.m + 1, 0).getDate();
@@ -37,24 +62,24 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
   const goToday = () => setCur({ y: now.getFullYear(), m: now.getMonth() });
 
   const WD = ['일','월','화','수','목','금','토'];
-  const monthTotal = scoped.filter(r => {
-    const s = new Date(r.start);
+  const monthTotal = groups.filter(g => {
+    const s = new Date(g.start);
     return s.getFullYear()===cur.y && s.getMonth()===cur.m;
   });
 
   // 레인 할당: 같은 예약이 모든 날짜에서 같은 세로 줄에 오도록
   const LANES_SHOWN = 3;
   const laneOf = useMemo(() => {
-    const sorted = [...scoped].sort((a,b) => a.start.localeCompare(b.start));
+    const sorted = [...groups].sort((a,b) => a.start.localeCompare(b.start));
     const laneEnds = []; const map = {};
-    sorted.forEach(r => {
-      const s = new Date(r.start); const e = new Date(rentalEndStr(r));
+    sorted.forEach(g => {
+      const s = new Date(g.start); const e = new Date(rentalEndStr(g));
       let lane = 0;
       while (laneEnds[lane] !== undefined && laneEnds[lane] >= s) lane++;
-      laneEnds[lane] = e; map[r.id] = lane;
+      laneEnds[lane] = e; map[g.key] = lane;
     });
     return map;
-  }, [scoped]);
+  }, [groups]);
 
   return (
     <div className="mt-px">
@@ -99,9 +124,9 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
           // 레인별 매핑
           const byLane = {};
           let overflow = 0;
-          items.forEach(r => {
-            const lane = laneOf[r.id];
-            if (lane < LANES_SHOWN) byLane[lane] = r; else overflow++;
+          items.forEach(g => {
+            const lane = laneOf[g.key];
+            if (lane < LANES_SHOWN) byLane[lane] = g; else overflow++;
           });
           return (
             <button key={i} onClick={() => items.length && setSelected({ day, items })}
@@ -109,17 +134,19 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
               <div className={`mx-1.5 font-mono text-[12px] ${isToday ? 'bg-ink text-bg w-5 h-5 flex items-center justify-center rounded-full' : 'text-muted'}`}>{day}</div>
               <div className="flex flex-col gap-0.5">
                 {Array.from({ length: LANES_SHOWN }).map((_, lane) => {
-                  const r = byLane[lane];
-                  if (!r) return <div key={lane} className="h-[19px]"/>; // 빈 슬롯(정렬 유지)
-                  const isS = r.start === fmt(day);
-                  const isE = rentalEndStr(r) === fmt(day);
+                  const g = byLane[lane];
+                  if (!g) return <div key={lane} className="h-[19px]"/>; // 빈 슬롯(정렬 유지)
+                  const isS = g.start === fmt(day);
+                  const isE = rentalEndStr(g) === fmt(day);
                   const showLabel = isS || weekStart; // 시작일 또는 매주 첫날 라벨 재표시
                   return (
                     <div key={lane}
                       className={`h-[19px] leading-[19px] text-[11px] text-ink/80 overflow-hidden whitespace-nowrap ${isS ? 'rounded-l-sm pl-1.5 border-l-2 border-ink' : 'pl-1'} ${isE ? 'rounded-r-sm mr-0.5' : ''}`}
-                      style={{ background: colorOf(r.id) }}
-                      title={readOnly ? `예약됨 ×${r.qty} (${r.start}부터 ${r.days}일)` : `${gearName(r.gearId)} ×${r.qty} · ${r.renter} (${r.start}부터 ${r.days}일)`}>
-                      {showLabel ? (readOnly ? `예약 ×${r.qty}` : `${short(gearName(r.gearId))} ×${r.qty}${isS ? ' · ' + r.renter : ''}`) : '\u00A0'}
+                      style={{ background: colorOf(g.key) }}
+                      title={readOnly
+                        ? `예약됨 ×${totalQty(g)} (${g.start}부터 ${g.days}일)`
+                        : `${g.renter} · ${g.items.map(x => `${gearName(x.gearId)} ×${x.qty}`).join(', ')} (${g.start}부터 ${g.days}일)`}>
+                      {showLabel ? (readOnly ? `예약 ×${totalQty(g)}` : `${isS ? g.renter + ' · ' : ''}${groupLabel(g)}`) : '\u00A0'}
                     </div>
                   );
                 })}
@@ -134,7 +161,7 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
           <span className="text-[12px] text-muted">색칠된 날짜는 예약이 있는 기간입니다. 그 외 날짜는 대여 가능하며, 정확한 가용 수량은 문의 시 안내드립니다.</span>
         ) : (
           <>
-            <span className="text-[12px] text-muted">같은 색·같은 줄로 이어진 막대가 하나의 예약입니다.</span>
+            <span className="text-[12px] text-muted">예약자·대여기간이 같은 장비는 하나의 막대로 묶여 표시됩니다. 날짜를 클릭하면 장비 목록을 볼 수 있어요.</span>
             <span className="inline-flex items-center gap-1.5 text-[12px] text-muted">
               <span className="inline-block w-4 h-3 border-l-2 border-ink" style={{background:RENTAL_COLORS[0]}}/> 시작일
             </span>
@@ -154,21 +181,54 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
               <button onClick={() => setSelected(null)} className="p-1 hover:rotate-90 transition-transform"><Ico.close className="w-5 h-5"/></button>
             </div>
             <div className="px-6 py-5 space-y-3 max-h-[60vh] overflow-y-auto">
-              {selected.items.map(r => (
-                <div key={r.id} className="flex items-start justify-between gap-3 border-b border-line pb-3">
-                  <div className="min-w-0">
-                    <div className="font-display text-lg leading-tight">{gearName(r.gearId)} <span className="font-mono text-[13px] text-muted">×{r.qty}</span></div>
-                    <div className="text-[13px] text-muted">{readOnly ? '예약됨' : r.renter} · {r.days}일</div>
-                    {!readOnly && (
-                      <div className="font-mono text-[12px] text-muted mt-0.5">
-                        {r.start}{r.startTime ? ` ${r.startTime}` : ''} → {rentalEndStr(r)}{r.endTime ? ` ${r.endTime}` : ''}
+              {selected.items.map(g => (
+                <div key={g.key} className="border-b border-line pb-3">
+                  {/* 예약 묶음 헤더 — 예약자 · 기간 */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-display text-lg leading-tight">
+                        {readOnly ? '예약됨' : g.renter}
+                        <span className="font-mono text-[13px] text-muted ml-2">장비 {g.items.length}종 · 총 {totalQty(g)}대</span>
                       </div>
+                      <div className="font-mono text-[12px] text-muted mt-0.5">
+                        {g.start}{g.startTime ? ` ${g.startTime}` : ''} → {rentalEndStr(g)}{g.endTime ? ` ${g.endTime}` : ''} ({g.days}일)
+                      </div>
+                    </div>
+                    {!readOnly && (
+                      <button
+                        onClick={() => {
+                          if (!confirm(`${g.renter}님의 예약 ${g.items.length}건을 모두 삭제할까요?`)) return;
+                          g.items.forEach(r => onRemove(r.id));
+                          setSelected(s => ({ ...s, items: s.items.filter(x => x.key !== g.key) }));
+                        }}
+                        className="text-[11px] text-muted hover:text-ink border border-line hover:border-ink px-2 py-1 shrink-0">전체 삭제</button>
                     )}
                   </div>
-                  {!readOnly && (
-                    <button onClick={() => { onRemove(r.id); setSelected(s => ({ ...s, items: s.items.filter(x=>x.id!==r.id) })); }}
-                      className="text-muted hover:text-ink p-1 shrink-0"><Ico.trash className="w-4 h-4"/></button>
-                  )}
+                  {/* 묶음에 속한 장비들 */}
+                  <div className="mt-2 space-y-1">
+                    {g.items.map(r => (
+                      <div key={r.id} className="flex items-center justify-between gap-2 text-[13px] pl-3 border-l-2 border-line">
+                        <span className="min-w-0 truncate">
+                          {readOnly ? '예약된 장비' : gearName(r.gearId)}
+                          <span className="font-mono text-[12px] text-muted ml-1.5">×{r.qty}</span>
+                        </span>
+                        {!readOnly && (
+                          <button onClick={() => {
+                              onRemove(r.id);
+                              setSelected(s => ({
+                                ...s,
+                                items: s.items
+                                  .map(x => x.key === g.key ? { ...x, items: x.items.filter(y => y.id !== r.id) } : x)
+                                  .filter(x => x.items.length > 0),
+                              }));
+                            }}
+                            className="text-muted hover:text-ink p-1 shrink-0" aria-label="이 장비만 삭제">
+                            <Ico.trash className="w-3.5 h-3.5"/>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
               {selected.items.length === 0 && <div className="text-center text-muted py-6 text-[14px]">예약이 없습니다.</div>}

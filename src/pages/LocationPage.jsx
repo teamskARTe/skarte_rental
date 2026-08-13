@@ -88,6 +88,22 @@ export function LocationPage({ setPage }) {
         ))}
       </div>
 
+      {/* 주차 안내 (송도점) */}
+      <div className="border border-line p-6 md:p-8 mb-px">
+        <div className="font-display text-xl md:text-2xl mb-1">송도점 주차</div>
+        <p className="text-[13px] text-muted mb-5">건물 주차장을 이용하실 수 있습니다.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-line">
+          <div className="bg-bg p-4">
+            <div className="font-mono text-[12px] text-muted mb-1">최초 1시간</div>
+            <div className="font-display text-lg leading-none">무료</div>
+          </div>
+          <div className="bg-bg p-4">
+            <div className="font-mono text-[12px] text-muted mb-1">이후</div>
+            <div className="font-display text-lg leading-none">렌탈 시간에 따라 주차비 지원</div>
+          </div>
+        </div>
+      </div>
+
       {/* 주차 요금 안내 (인하대점) */}
       <div className="border border-line p-6 md:p-8 mb-16">
         <div className="font-display text-xl md:text-2xl mb-1">인하대점 학교 주차 요금</div>
@@ -104,9 +120,6 @@ export function LocationPage({ setPage }) {
               <div className="font-display text-lg leading-none">{p.v}</div>
             </div>
           ))}
-        </div>
-        <div className="bg-ink text-bg p-4 text-[14px]">
-          💡 <span className="font-bold">10만원 이상 대여</span> 시 주차비를 <span className="font-bold">차량 1대 · 1시간</span>까지 지원해 드립니다.
         </div>
       </div>
 
