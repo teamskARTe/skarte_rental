@@ -15,6 +15,7 @@ import { GearPage } from './features/equipment/GearPage';
 import { sb, store, CLOUD_KEYS, onWriteError, getLastLoadError } from './lib/supabase';
 import { hashPassword, verifyPassword, isLegacyPlain } from './lib/auth';
 import { copyText } from './lib/format';
+import { mergeListById } from './lib/merge';
 import { GuidePage } from './pages/GuidePage';
 import { HomePage } from './pages/HomePage';
 import { ExtraGearPage } from './pages/ExtraGearPage';
@@ -56,6 +57,8 @@ export function App() {
   const [works, setWorks] = useState(() => store.read('skeart_works', DEFAULT_WORKS));
   const [categories, setCategories] = useState(() => store.read('skeart_categories', CATEGORIES));
   const [users, setUsers] = useState(() => store.read('skeart_users', []));
+  // 공유 캘린더 비밀 키 (/schedule?key=... 임베드용)
+  const [shareKey, setShareKey] = useState(() => store.read('skeart_schedule_key', ''));
 
   // 클라우드에서 마지막으로 읽은 값(키별 JSON). 값이 그대로면 다시 쓰지 않습니다.
   // 이게 없으면 페이지가 열릴 때마다 13개 키를 전부 되써서, 방문자 모두가 DB에 쓰게 됩니다.
@@ -65,9 +68,45 @@ export function App() {
   // 저장 실패 기록 (최근 것부터). 화면에 남겨두고 복사할 수 있게 합니다.
   const [saveErrors, setSaveErrors] = useState([]);
 
-  const saveCloud = (key, val) => {
+  // 목록형(배열) 키 → 저장 직전에 서버 최신값과 id 기준으로 병합합니다.
+  // 두 사람이 각자 장비를 추가·수정해도 서로의 변경이 보존되어, 매번 새로고침할 필요가 없습니다.
+  const LIST_SETTERS = {
+    skeart_equipment_v2: setEquipment,
+    skeart_rentals_v2: setRentals,
+    skeart_orders: setOrders,
+    skeart_sets: setSets,
+    skeart_brands: setBrands,
+    skeart_discounts: setDiscounts,
+    skeart_notices: setNotices,
+    skeart_works: setWorks,
+    skeart_eventbanners_v2: setEventBanners,
+    skeart_homebanner_v2: setHomeBanner,
+    skeart_bestids: setBestIds,
+    skeart_categories: setCategories,
+  };
+
+  const saveCloud = async (key, val) => {
     const json = JSON.stringify(val);
-    if (cloudSnap.current[key] === json) return;  // 변경 없음 → 쓰지 않음
+    if (cloudSnap.current[key] === json) return;  // 이 탭 기준 변경 없음 → 저장 안 함
+
+    const setter = LIST_SETTERS[key];
+    const baseRaw = cloudSnap.current[key];
+    // 목록형이고, 불러온 기준값(base)이 있으며, 서버 연결이 있을 때만 병합 저장
+    if (sb && setter && Array.isArray(val) && baseRaw !== undefined) {
+      let base = null;
+      try { base = JSON.parse(baseRaw); } catch (e) { base = null; }
+      const server = await store.cloudReadKey(key);   // 서버 최신값 (실패 시 null)
+      if (Array.isArray(base) && Array.isArray(server)) {
+        const merged = mergeListById(base, val, server);
+        const mergedJson = JSON.stringify(merged);
+        cloudSnap.current[key] = mergedJson;
+        // 병합 결과가 내 화면과 다르면(다른 사람의 변경 포함) 화면에도 반영
+        if (mergedJson !== json) setter(merged);
+        store.write(key, merged);
+        return;
+      }
+    }
+    // 그 외(단일 객체 등) 또는 병합 불가: 기존처럼 통째로 저장
     cloudSnap.current[key] = json;
     store.write(key, val);
   };
@@ -95,6 +134,7 @@ export function App() {
       if (map.skeart_works           !== undefined) setWorks(map.skeart_works);
       if (map.skeart_categories      !== undefined) setCategories(map.skeart_categories);
       if (map.skeart_users           !== undefined) setUsers(map.skeart_users);
+      if (typeof map.skeart_schedule_key === 'string') setShareKey(map.skeart_schedule_key);
 
       // 방금 읽은 값을 스냅샷에 기록 → 로드 직후의 불필요한 되쓰기를 막습니다.
       CLOUD_KEYS.forEach(k => { if (map[k] !== undefined) cloudSnap.current[k] = JSON.stringify(map[k]); });
@@ -115,6 +155,20 @@ export function App() {
     user.role ? isAdminUser(user)
               : isAdminUser(users.find(u => u.email === user.email) || user)
   );
+
+  // 공유 캘린더 비밀 키: 관리자가 처음 들어오면 없을 때 자동 생성
+  const genShareKey = () => {
+    try {
+      const a = new Uint8Array(16); crypto.getRandomValues(a);
+      return Array.from(a).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+      return (Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/[^a-z0-9]/g, '');
+    }
+  };
+  useEffect(() => {
+    if (loaded && isAdmin && !shareKey) setShareKey(genShareKey());
+  }, [loaded, isAdmin, shareKey]);
+  const regenerateShareKey = () => setShareKey(genShareKey());
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [page]);
   // 장비 목록에 없는(옛 더미 등) 장바구니 항목 자동 정리
@@ -140,6 +194,7 @@ export function App() {
   useEffect(() => { if (loaded) saveCloud('skeart_works', works); }, [works, loaded]);
   useEffect(() => { if (loaded) saveCloud('skeart_categories', categories); }, [categories, loaded]);
   useEffect(() => { if (loaded) saveCloud('skeart_users', users); }, [users, loaded]);
+  useEffect(() => { if (loaded && shareKey) saveCloud('skeart_schedule_key', shareKey); }, [shareKey, loaded]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
   // 세트는 EQUIPMENT에 없으므로 set_ 접두사도 유효 처리
@@ -285,6 +340,7 @@ export function App() {
         {page === 'admin' && (isAdmin
           ? <AdminPage equipment={equipment} setEquipment={setEquipment} orders={orders} setOrders={setOrders} updateOrderStatus={updateOrderStatus} rentals={rentals} setRentals={setRentals}
               users={users} categories={categories} setCategories={setCategories}
+              shareKey={shareKey} onRegenerateShareKey={regenerateShareKey}
               homeBanner={homeBanner} setHomeBanner={setHomeBanner}
               eventBanners={eventBanners} setEventBanners={setEventBanners}
               sets={sets} setSets={setSets} bestIds={bestIds} setBestIds={setBestIds}

@@ -5,13 +5,16 @@ import { DEFAULT_EQUIPMENT, isAdminUser, roleLabel, BRANCHES, branchName } from 
 import { EquipDetailModal } from './EquipDetailModal';
 import { EquipForm } from './EquipForm';
 import { RentalCalendar } from '../rentals/RentalCalendar';
-import { calcPrice, priceLabel, won } from '../../lib/format';
+import { calcPrice, priceLabel, won, copyText } from '../../lib/format';
 import { youtubeId } from '../content/WorksSection';
 
 export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOrderStatus, rentals, setRentals,
   homeBanner, setHomeBanner, eventBanners, setEventBanners, sets, setSets, bestIds, setBestIds,
-  notices, setNotices, brands, setBrands, discounts, setDiscounts, works, setWorks, users: usersProp, categories, setCategories, onExit }) {
+  notices, setNotices, brands, setBrands, discounts, setDiscounts, works, setWorks, users: usersProp, categories, setCategories,
+  shareKey, onRegenerateShareKey, onExit }) {
   const CATEGORIES = categories;
+  const scheduleUrl = shareKey ? `${window.location.origin}/schedule?key=${shareKey}` : '';
+  const [shareCopied, setShareCopied] = useState(false);
   const [tab, setTab] = useState('dash');
   const [editing, setEditing] = useState(null); // null | 'new' | item
   const [viewing, setViewing] = useState(null); // 상세/캘린더 보기 장비
@@ -221,10 +224,41 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
           <div className="mt-10">
             <div className="font-mono text-[12px] uppercase tracking-[0.2em] text-muted mb-3">— 대여 일정</div>
             <h2 className="font-display text-2xl md:text-3xl leading-none mb-5">대여 일정</h2>
+
+            {/* 캘린더 공유 링크 (노션 임베드 등) */}
+            <div className="border border-line p-4 md:p-5 mb-5">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <span className="font-mono text-[12px] uppercase tracking-wider text-muted">캘린더 공유 링크</span>
+                <button onClick={() => { if (confirm('링크를 재발급하면 기존 링크는 더 이상 열리지 않습니다. 노션 등에 다시 붙여넣어야 해요. 계속할까요?')) onRegenerateShareKey(); }}
+                  className="text-[12px] text-muted hover:text-ink underline-grow">키 재발급</button>
+              </div>
+              {scheduleUrl ? (
+                <>
+                  <div className="flex gap-2">
+                    <input readOnly value={scheduleUrl} onClick={e => e.target.select()}
+                      className="flex-1 min-w-0 border border-line px-3 py-2.5 text-[13px] font-mono bg-[#FAFAFA] outline-none"/>
+                    <button onClick={() => copyText(scheduleUrl).then(ok => { setShareCopied(ok); setTimeout(() => setShareCopied(false), 2000); })}
+                      className="shrink-0 bg-ink text-bg px-4 py-2.5 text-[13px] hover-lift">
+                      {shareCopied ? '복사됨 ✓' : '복사'}
+                    </button>
+                    <a href={scheduleUrl} target="_blank" rel="noopener noreferrer"
+                      className="shrink-0 border border-line hover:border-ink px-4 py-2.5 text-[13px] inline-flex items-center">미리보기</a>
+                  </div>
+                  <p className="text-[12px] text-muted mt-2 leading-relaxed">
+                    이 링크는 <span className="text-ink">로그인 없이</span> 대여 일정만 읽기 전용으로 보여줍니다(대여자·메모 포함). 노션에 임베드해 활용하세요.
+                    링크를 아는 사람은 누구나 볼 수 있으니, 외부에 유출되면 <span className="text-ink">키 재발급</span>으로 차단하세요.
+                  </p>
+                </>
+              ) : (
+                <p className="text-[13px] text-muted">링크를 준비 중입니다. 잠시 후 새로고침하면 표시됩니다.</p>
+              )}
+            </div>
+
             <RentalCalendar
               rentals={rentals} equipment={equipment}
               onAdd={(list) => setRentals(prev => [...prev, ...list])}
-              onRemove={(id) => setRentals(prev => prev.filter(x => x.id !== id))}/>
+              onRemove={(id) => setRentals(prev => prev.filter(x => x.id !== id))}
+              onUpdate={(ids, patch) => setRentals(prev => prev.map(r => ids.includes(r.id) ? { ...r, ...patch } : r))}/>
           </div>
         </div>
       )}
@@ -1037,6 +1071,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
       {viewing && <EquipDetailModal item={viewing} rentals={rentals} equipment={equipment}
         onAdd={(list) => setRentals(prev => [...prev, ...list])}
         onRemove={(id) => setRentals(prev => prev.filter(x => x.id !== id))}
+        onUpdate={(ids, patch) => setRentals(prev => prev.map(r => ids.includes(r.id) ? { ...r, ...patch } : r))}
         onEdit={startEdit} onClose={() => setViewing(null)}/>}
     </section>
   );

@@ -4,7 +4,7 @@ import { Ico } from '../../components/Ico';
 import { RentalCalendar } from '../rentals/RentalCalendar';
 import { won } from '../../lib/format';
 
-export function EquipDetailModal({ item, rentals, equipment, onAdd, onRemove, onClose, onEdit }) {
+export function EquipDetailModal({ item, rentals, equipment, onAdd, onRemove, onUpdate, onClose, onEdit }) {
   const [view, setView] = useState('info'); // info | calendar
   useEffect(() => {
     const esc = (e) => e.key === 'Escape' && onClose();
@@ -116,7 +116,7 @@ export function EquipDetailModal({ item, rentals, equipment, onAdd, onRemove, on
               <p className="text-[13px] text-muted mb-4">
                 <span className="font-bold text-ink">{item.name}</span>의 대여 일정만 표시됩니다. 일정 추가 시 이 장비가 기본 선택됩니다.
               </p>
-              <RentalCalendar rentals={rentals} equipment={equipment} onAdd={onAdd} onRemove={onRemove} filterGearId={item.id}/>
+              <RentalCalendar rentals={rentals} equipment={equipment} onAdd={onAdd} onRemove={onRemove} onUpdate={onUpdate} filterGearId={item.id}/>
             </div>
           )}
         </div>

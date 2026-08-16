@@ -160,7 +160,7 @@ export function DetailModal({ item, onClose, onAdd, wishlist, onToggleWish, rent
             </div>
 
             <div className="font-display font-bold text-lg md:text-xl leading-none mb-4">예약 정보</div>
-            <RentalCalendar rentals={rentals || []} equipment={[item]} filterGearId={item.id} readOnly/>
+            <RentalCalendar rentals={rentals || []} equipment={[item]} filterGearId={item.id} readOnly hideIdentity/>
           </div>
           )}
         </div>

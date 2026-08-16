@@ -12,6 +12,7 @@ export function RentalForm({ equipment, defaultStart, defaultGearId, onSave, onC
   const [endTime, setEndTime] = useState('18:00');
   const [rows, setRows] = useState(first ? [{ gearId: first, qty: 1 }] : []);
   const [addGearId, setAddGearId] = useState('');
+  const [memo, setMemo] = useState('');
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export function RentalForm({ equipment, defaultStart, defaultGearId, onSave, onC
     if (rows.length === 0) return setErr('장비를 한 개 이상 추가해 주세요.');
     const base = Date.now().toString().slice(-6);
     const d = Math.max(1, parseInt(days) || 1);
+    const m = memo.trim();
     onSave(rows.map((r, i) => ({
       id: `r${base}_${i}`,
       gearId: r.gearId,
@@ -54,6 +56,7 @@ export function RentalForm({ equipment, defaultStart, defaultGearId, onSave, onC
       days: d,
       startTime,
       endTime,
+      memo: m,             // 예약(묶음) 메모 — 같은 예약의 모든 항목에 동일하게 저장
       group: `g${base}`,   // 같은 등록건 묶음 표시용
     })));
   };
@@ -133,6 +136,14 @@ export function RentalForm({ equipment, defaultStart, defaultGearId, onSave, onC
               <button onClick={addRow} disabled={!addGearId}
                 className="shrink-0 text-[12px] border border-ink px-4 py-2 hover-lift disabled:opacity-40 disabled:cursor-not-allowed">추가</button>
             </div>
+          </div>
+
+          {/* 메모 (예약 단위) */}
+          <div className="pt-2 border-t border-line">
+            <label className="font-mono text-[11px] uppercase tracking-wider text-muted">메모 (선택)</label>
+            <textarea value={memo} onChange={e=>setMemo(e.target.value)} rows={3}
+              placeholder="대여 관련 자유 메모 (예: 보증금 받음, 오후 6시 이후 반납 등)"
+              className="w-full border border-line focus:border-ink outline-none px-3 py-2.5 text-[14px] mt-1 bg-transparent resize-y"/>
           </div>
 
           {err && <div className="text-[13px] text-red-600">{err}</div>}

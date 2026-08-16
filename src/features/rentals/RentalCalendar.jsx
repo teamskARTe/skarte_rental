@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Ico } from '../../components/Ico';
 import { RENTAL_COLORS, colorOf, rentalEndStr } from '../../data/defaults';
 import { RentalForm } from './RentalForm';
 
-export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGearId, readOnly }) {
+// readOnly     : 편집(추가·삭제·메모수정) 불가
+// hideIdentity : 대여자·장비명·메모를 가림 (손님용 공개 예약현황)
+export function RentalCalendar({ rentals, equipment, onAdd, onRemove, onUpdate, filterGearId, readOnly, hideIdentity }) {
   const now = new Date();
   const [cur, setCur] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [adding, setAdding] = useState(false);
@@ -21,14 +23,15 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
       if (!map.has(key)) {
         map.set(key, {
           key, renter: r.renter, start: r.start, days: r.days,
-          startTime: r.startTime, endTime: r.endTime, items: [],
+          startTime: r.startTime, endTime: r.endTime, memo: r.memo || '', items: [],
         });
       }
       const g = map.get(key);
       g.items.push(r);
-      // 시간 정보는 먼저 들어온 값을 유지하되, 비어 있으면 채웁니다.
+      // 시간·메모는 먼저 들어온 값을 유지하되, 비어 있으면 채웁니다.
       if (!g.startTime && r.startTime) g.startTime = r.startTime;
       if (!g.endTime && r.endTime) g.endTime = r.endTime;
+      if (!g.memo && r.memo) g.memo = r.memo;
     });
     return [...map.values()];
   }, [scoped]);
@@ -143,10 +146,10 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
                     <div key={lane}
                       className={`h-[19px] leading-[19px] text-[11px] text-ink/80 overflow-hidden whitespace-nowrap ${isS ? 'rounded-l-sm pl-1.5 border-l-2 border-ink' : 'pl-1'} ${isE ? 'rounded-r-sm mr-0.5' : ''}`}
                       style={{ background: colorOf(g.key) }}
-                      title={readOnly
+                      title={hideIdentity
                         ? `예약됨 ×${totalQty(g)} (${g.start}부터 ${g.days}일)`
-                        : `${g.renter} · ${g.items.map(x => `${gearName(x.gearId)} ×${x.qty}`).join(', ')} (${g.start}부터 ${g.days}일)`}>
-                      {showLabel ? (readOnly ? `예약 ×${totalQty(g)}` : `${isS ? g.renter + ' · ' : ''}${groupLabel(g)}`) : '\u00A0'}
+                        : `${g.renter} · ${g.items.map(x => `${gearName(x.gearId)} ×${x.qty}`).join(', ')} (${g.start}부터 ${g.days}일)${g.memo ? ` · ${g.memo}` : ''}`}>
+                      {showLabel ? (hideIdentity ? `예약 ×${totalQty(g)}` : `${isS ? g.renter + ' · ' : ''}${groupLabel(g)}`) : '\u00A0'}
                     </div>
                   );
                 })}
@@ -157,7 +160,7 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
         })}
       </div>
       <div className="flex items-center gap-4 mt-3 flex-wrap">
-        {readOnly ? (
+        {hideIdentity ? (
           <span className="text-[12px] text-muted">색칠된 날짜는 예약이 있는 기간입니다. 그 외 날짜는 대여 가능하며, 정확한 가용 수량은 문의 시 안내드립니다.</span>
         ) : (
           <>
@@ -177,7 +180,7 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
         <div className="fixed inset-0 z-50 modal-backdrop flex items-end md:items-center justify-center p-0 md:p-6 fade-in" onClick={() => setSelected(null)}>
           <div onClick={e=>e.stopPropagation()} className="bg-bg w-full md:max-w-md border border-ink">
             <div className="border-b border-line px-6 py-4 flex items-center justify-between">
-              <div className="font-display text-2xl">{cur.m+1}월 {selected.day}일 {readOnly ? '예약 현황' : '대여 현황'}</div>
+              <div className="font-display text-2xl">{cur.m+1}월 {selected.day}일 {hideIdentity ? '예약 현황' : '대여 현황'}</div>
               <button onClick={() => setSelected(null)} className="p-1 hover:rotate-90 transition-transform"><Ico.close className="w-5 h-5"/></button>
             </div>
             <div className="px-6 py-5 space-y-3 max-h-[60vh] overflow-y-auto">
@@ -187,7 +190,7 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="font-display text-lg leading-tight">
-                        {readOnly ? '예약됨' : g.renter}
+                        {hideIdentity ? '예약됨' : g.renter}
                         <span className="font-mono text-[13px] text-muted ml-2">장비 {g.items.length}종 · 총 {totalQty(g)}대</span>
                       </div>
                       <div className="font-mono text-[12px] text-muted mt-0.5">
@@ -209,7 +212,7 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
                     {g.items.map(r => (
                       <div key={r.id} className="flex items-center justify-between gap-2 text-[13px] pl-3 border-l-2 border-line">
                         <span className="min-w-0 truncate">
-                          {readOnly ? '예약된 장비' : gearName(r.gearId)}
+                          {hideIdentity ? '예약된 장비' : gearName(r.gearId)}
                           <span className="font-mono text-[12px] text-muted ml-1.5">×{r.qty}</span>
                         </span>
                         {!readOnly && (
@@ -229,11 +232,69 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, filterGear
                       </div>
                     ))}
                   </div>
+
+                  {/* 메모 (예약 단위) */}
+                  {!hideIdentity && (
+                    <GroupMemo group={g} readOnly={readOnly}
+                      onSave={(text) => {
+                        if (onUpdate) onUpdate(g.items.map(i => i.id), { memo: text });
+                        // 모달 표시도 즉시 갱신
+                        setSelected(s => ({ ...s, items: s.items.map(x => x.key === g.key ? { ...x, memo: text } : x) }));
+                      }}/>
+                  )}
                 </div>
               ))}
               {selected.items.length === 0 && <div className="text-center text-muted py-6 text-[14px]">예약이 없습니다.</div>}
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 예약(묶음) 메모: 관리자는 편집·저장, 공유 링크에서는 읽기전용으로 표시
+function GroupMemo({ group, readOnly, onSave }) {
+  const [text, setText] = useState(group.memo || '');
+  const [editing, setEditing] = useState(false);
+  // 다른 예약을 선택하면 최신 메모로 동기화
+  useEffect(() => { setText(group.memo || ''); setEditing(false); }, [group.key, group.memo]);
+
+  if (readOnly) {
+    if (!group.memo) return null;
+    return (
+      <div className="mt-3 border-t border-line pt-2">
+        <div className="font-mono text-[11px] uppercase tracking-wider text-muted mb-1">메모</div>
+        <div className="text-[13px] whitespace-pre-wrap leading-relaxed">{group.memo}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 border-t border-line pt-2">
+      <div className="flex items-center justify-between mb-1">
+        <span className="font-mono text-[11px] uppercase tracking-wider text-muted">메모</span>
+        {!editing && (
+          <button onClick={() => setEditing(true)} className="text-[12px] text-muted hover:text-ink underline-grow">
+            {group.memo ? '수정' : '추가'}
+          </button>
+        )}
+      </div>
+      {editing ? (
+        <div>
+          <textarea value={text} onChange={e => setText(e.target.value)} rows={3} autoFocus
+            placeholder="대여 관련 자유 메모"
+            className="w-full border border-line focus:border-ink outline-none px-3 py-2 text-[13px] bg-transparent resize-y"/>
+          <div className="flex gap-2 justify-end mt-1.5">
+            <button onClick={() => { setText(group.memo || ''); setEditing(false); }}
+              className="text-[12px] border border-line hover:border-ink px-3 py-1.5">취소</button>
+            <button onClick={() => { onSave(text.trim()); setEditing(false); }}
+              className="text-[12px] bg-ink text-bg px-4 py-1.5 hover-lift">저장</button>
+          </div>
+        </div>
+      ) : (
+        <div className="text-[13px] whitespace-pre-wrap leading-relaxed text-ink/90">
+          {group.memo || <span className="text-muted">메모 없음</span>}
         </div>
       )}
     </div>
