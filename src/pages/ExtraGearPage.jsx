@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Ico } from '../components/Ico';
 
-export function ExtraGearPage({ setPage, onRecordOrder }) {
+export function ExtraGearPage({ setPage, onRecordOrder, ready = true }) {
   const [gear, setGear] = useState('');
   const [situation, setSituation] = useState('');
   const [name, setName] = useState('');
@@ -9,14 +9,20 @@ export function ExtraGearPage({ setPage, onRecordOrder }) {
   const [done, setDone] = useState(null); // 접수 완료 시 { refNo }
   const [copied, setCopied] = useState(false);
 
-  const submit = () => {
-    if (!gear.trim() || !name.trim() || !contact.trim()) return;
-    let refNo = null;
-    if (onRecordOrder) {
-      const saved = onRecordOrder({ type:'extra', gear, situation, name, contact });
-      if (saved && saved.refNo) refNo = saved.refNo;
+  const [sending, setSending] = useState(false);
+  const submit = async () => {
+    if (!gear.trim() || !name.trim() || !contact.trim() || !ready || sending) return;
+    setSending(true);
+    try {
+      let refNo = null;
+      if (onRecordOrder) {
+        const saved = await onRecordOrder({ type:'extra', gear, situation, name, contact });
+        if (saved && saved.refNo) refNo = saved.refNo;
+      }
+      setDone({ refNo });
+    } finally {
+      setSending(false);
     }
-    setDone({ refNo });
   };
 
   const copyRef = () => {
@@ -102,9 +108,9 @@ export function ExtraGearPage({ setPage, onRecordOrder }) {
         </div>
         <p className="text-[12px] text-muted">연락처로 문의를 조회할 수 있어요. 해당 장비 입고 시 연락드립니다.</p>
 
-        <button onClick={submit} disabled={!gear.trim() || !name.trim() || !contact.trim()}
+        <button onClick={submit} disabled={!gear.trim() || !name.trim() || !contact.trim() || !ready || sending}
           className="w-full bg-ink text-bg py-4 inline-flex items-center justify-center gap-2 hover-lift disabled:opacity-40">
-          추가 장비 신청
+          {!ready ? '불러오는 중… 잠시만요' : sending ? '접수 중…' : '추가 장비 신청'}
         </button>
       </div>
     </section>

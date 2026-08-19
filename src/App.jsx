@@ -256,18 +256,13 @@ export function App() {
 
   // ── 문의 내역 기록 ──
   // 문의 접수: 접수번호 발급 + 상태(pending) 저장, 저장된 객체 반환
-  const recordOrder = ({ items, total, startDate, type = 'cart', gear, situation, contact, name,
+  // 같은 사람(이름·연락처)이 같은 렌탈·반납 일정으로 다시 보내면, 새 번호를 만들지 않고
+  // 기존 대기중 접수를 같은 접수번호로 "수정"합니다. (재제출 시 번호가 바뀌던 문제 해결)
+  const recordOrder = async ({ items, total, startDate, type = 'cart', gear, situation, contact, name,
     startTime, returnDate, returnTime, pickupBranch, returnBranch, care, careFee, vat }) => {
-    // 접수번호: 1001부터 1씩 증가
-    const lastNo = orders.reduce((m, o) => Math.max(m, o.refNo || 1000), 1000);
-    const refNo = lastNo + 1;
-    const o = {
-      id: Date.now().toString().slice(-6),
-      refNo,
-      type,                 // 'cart' | 'extra'
-      status: 'pending',    // 'pending' | 'accepted' | 'rejected'
-      date: new Date().toISOString().slice(0,10),
-      createdAt: new Date().toISOString(),
+    const norm = (s) => (s || '').trim();
+    const fields = {
+      type,
       items: items || [],
       total: total || 0,
       startDate: startDate || '',
@@ -281,8 +276,42 @@ export function App() {
       vat: vat || 0,
       gear: gear || '',
       situation: situation || '',
-      contact: contact || '',
-      name: name || '',
+      contact: norm(contact),
+      name: norm(name),
+    };
+
+    // 같은 접수 찾기: 연락처가 있고, 이름·연락처·렌탈일·반납일이 모두 같은 '대기중' 장바구니 접수
+    const matchIdx = norm(contact) === '' ? -1 : orders.findIndex(o =>
+      o.type === 'cart' && (o.status || 'pending') === 'pending' &&
+      norm(o.name) === norm(name) && norm(o.contact) === norm(contact) &&
+      (o.startDate || '') === (startDate || '') && (o.returnDate || '') === (returnDate || '')
+    );
+
+    if (matchIdx >= 0) {
+      const existing = orders[matchIdx];
+      const updated = { ...existing, ...fields, date: new Date().toISOString().slice(0,10) };
+      setOrders(prev => prev.map((o, i) => i === matchIdx ? updated : o));
+      return updated;   // 같은 접수번호 유지
+    }
+
+    // 새 접수번호: 서버 시퀀스(원자적)로 발급 → 동시에 접수해도 절대 중복되지 않음.
+    // 서버 미연결·함수 없음·오류 시엔 기존 방식(로컬 max+1)으로 폴백.
+    let refNo = null;
+    if (sb) {
+      try {
+        const { data, error } = await sb.rpc('next_ref_no');
+        if (!error && data != null) refNo = Number(data);
+      } catch (e) { /* 폴백으로 진행 */ }
+    }
+    if (refNo == null) refNo = orders.reduce((m, o) => Math.max(m, o.refNo || 1000), 1000) + 1;
+
+    const o = {
+      id: Date.now().toString().slice(-6),
+      refNo,
+      status: 'pending',
+      date: new Date().toISOString().slice(0,10),
+      createdAt: new Date().toISOString(),
+      ...fields,
     };
     setOrders(prev => [...prev, o]);
     return o;
@@ -329,7 +358,7 @@ export function App() {
         {page === 'home'  && <HomePage setPage={setPage} setCategory={setCategory} onBrand={(q) => { setGearSearch(q); setCategory('all'); setPage('gear'); }}/>}
         {page === 'gear'  && <GearPage category={category} setCategory={setCategory} onItemClick={setSelectedItem} wishlist={wishlist} onToggleWish={toggleWish} query={gearSearch} setQuery={setGearSearch} rentals={rentals}/>}
         {page === 'guide' && <GuidePage setPage={setPage}/>}
-        {page === 'extra' && <ExtraGearPage setPage={setPage} onRecordOrder={recordOrder}/>}
+        {page === 'extra' && <ExtraGearPage setPage={setPage} onRecordOrder={recordOrder} ready={loaded}/>}
         {page === 'lookup' && <LookupPage setPage={setPage} orders={orders}/>}
         {page === 'location' && <LocationPage setPage={setPage}/>}
         {page === 'mypage' && (user
@@ -337,23 +366,27 @@ export function App() {
               onLogout={logout} onItemClick={setSelectedItem} onToggleWish={toggleWish}
               onOpenCart={openCart} setPage={setPage} setCategory={setCategory}/>
           : <RequireLogin onAuthOpen={() => setAuthOpen(true)}/>)}
-        {page === 'admin' && (isAdmin
-          ? <AdminPage equipment={equipment} setEquipment={setEquipment} orders={orders} setOrders={setOrders} updateOrderStatus={updateOrderStatus} rentals={rentals} setRentals={setRentals}
-              users={users} categories={categories} setCategories={setCategories}
-              shareKey={shareKey} onRegenerateShareKey={regenerateShareKey}
-              homeBanner={homeBanner} setHomeBanner={setHomeBanner}
-              eventBanners={eventBanners} setEventBanners={setEventBanners}
-              sets={sets} setSets={setSets} bestIds={bestIds} setBestIds={setBestIds}
-              notices={notices} setNotices={setNotices}
-              brands={brands} setBrands={setBrands}
-              discounts={discounts} setDiscounts={setDiscounts}
-              works={works} setWorks={setWorks}
-              onExit={() => setPage('home')}/>
-          : <RequireLogin onAuthOpen={() => setAuthOpen(true)}/>)}
+        {page === 'admin' && (!isAdmin
+          ? <RequireLogin onAuthOpen={() => setAuthOpen(true)}/>
+          : cloudFailed
+            ? <AdminUnavailable failed={cloudFailed}/>
+            : !loaded
+              ? <AdminUnavailable/>
+              : <AdminPage equipment={equipment} setEquipment={setEquipment} orders={orders} setOrders={setOrders} updateOrderStatus={updateOrderStatus} rentals={rentals} setRentals={setRentals}
+                  users={users} categories={categories} setCategories={setCategories}
+                  shareKey={shareKey} onRegenerateShareKey={regenerateShareKey}
+                  homeBanner={homeBanner} setHomeBanner={setHomeBanner}
+                  eventBanners={eventBanners} setEventBanners={setEventBanners}
+                  sets={sets} setSets={setSets} bestIds={bestIds} setBestIds={setBestIds}
+                  notices={notices} setNotices={setNotices}
+                  brands={brands} setBrands={setBrands}
+                  discounts={discounts} setDiscounts={setDiscounts}
+                  works={works} setWorks={setWorks}
+                  onExit={() => setPage('home')}/>)}
       </main>
       <Footer setPage={setPage}/>
       {selectedItem && <DetailModal item={selectedItem} onClose={() => setSelectedItem(null)} onAdd={addToCart} wishlist={wishlist} onToggleWish={toggleWish} rentals={rentals}/>}
-      {cartOpen && <CartPanel cart={cart} onClose={() => setCartOpen(false)} onUpdate={updateCart} onRemove={removeFromCart} onClear={clearCart} onRecordOrder={recordOrder} user={user} onAuthOpen={() => setAuthOpen(true)}/>}
+      {cartOpen && <CartPanel cart={cart} onClose={() => setCartOpen(false)} onUpdate={updateCart} onRemove={removeFromCart} onClear={clearCart} onRecordOrder={recordOrder} user={user} onAuthOpen={() => setAuthOpen(true)} ready={loaded}/>}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} onLogin={login} onSignup={signup}/>}
       {page !== 'admin' && <NoticePopup />}
       {cloudFailed && (
@@ -405,5 +438,32 @@ export function App() {
     </SiteCtx.Provider>
     </CategoriesCtx.Provider>
     </EquipCtx.Provider>
+  );
+}
+
+// 관리자 페이지: 클라우드 로드가 끝나기 전(또는 실패 시)엔 편집 화면 대신 안내를 띄웁니다.
+// 옛 데이터로 편집하다 뒤늦게 도착한 클라우드 데이터에 덮어써지는 유실을 막습니다.
+function AdminUnavailable({ failed }) {
+  return (
+    <section className="pt-32 md:pt-40 px-6 pb-32 max-w-[560px] mx-auto text-center">
+      {failed ? (
+        <>
+          <div className="font-display font-bold text-3xl md:text-4xl leading-none mb-3">데이터를 불러오지 못했습니다</div>
+          <p className="text-[14px] text-muted leading-relaxed mb-2">
+            서버에서 최신 데이터를 받지 못해, 잘못된 수정으로 기록이 유실되는 것을 막기 위해 관리자 화면을 잠갔습니다.
+          </p>
+          <p className="font-mono text-[12px] text-muted mb-6">
+            [{failed.code || 'ERROR'}{failed.status ? ` ${failed.status}` : ''}] {failed.message}
+          </p>
+          <button onClick={() => window.location.reload()} className="bg-ink text-bg px-6 py-3 text-[13px] hover-lift">다시 시도</button>
+        </>
+      ) : (
+        <>
+          <div className="inline-block w-8 h-8 border-2 border-line border-t-ink rounded-full animate-spin mb-5" aria-hidden/>
+          <div className="font-display text-2xl md:text-3xl leading-none mb-2">최신 데이터를 불러오는 중…</div>
+          <p className="text-[14px] text-muted">잠시만 기다려 주세요. 로딩이 끝나면 편집할 수 있어요.</p>
+        </>
+      )}
+    </section>
   );
 }

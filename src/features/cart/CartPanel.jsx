@@ -2,9 +2,9 @@ import { useState, useEffect, useContext } from 'react';
 import { Ico } from '../../components/Ico';
 import { EquipCtx, SiteCtx, CategoriesCtx } from '../../context';
 import { EQUIPMENT, BRANCHES, branchName } from '../../data/defaults';
-import { openKakao, copyText, won } from '../../lib/format';
+import { copyText, won, KAKAO_URL } from '../../lib/format';
 
-export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecordOrder, user, onAuthOpen }) {
+export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecordOrder, user, onAuthOpen, ready = true }) {
   const CATEGORIES = useContext(CategoriesCtx);
   const EQUIPMENT = useContext(EquipCtx);
   const { sets } = useContext(SiteCtx);
@@ -154,21 +154,35 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
   };
 
   // 문의 저장(접수번호 발급) → 메시지 복사 → 카카오톡 채널 열기
-  const sendToKakao = () => {
-    if (selItems.length === 0 || hasUnsetDays) return;
-    let refNo = '';
-    if (onRecordOrder) {
-      const saved = onRecordOrder({
-        items: selItems.map(i => ({ id:i.id, name:i.gear.name, qty:i.qty, days:i.days })),
-        total, startDate, type:'cart', name: orderName, contact: orderContact,
-        care: careOn, careFee, vat,
-        startTime, returnDate, returnTime, pickupBranch, returnBranch,
-      });
-      if (saved && saved.refNo) refNo = saved.refNo;
+  // 접수번호를 서버에서 받아오느라 비동기라, 팝업 차단을 피하려고 채널 창을 클릭 즉시 먼저 엽니다.
+  const [sending, setSending] = useState(false);
+  const sendToKakao = async () => {
+    if (selItems.length === 0 || hasUnsetDays || !ready || sending) return;
+    setSending(true);
+    // 1) 사용자 클릭 즉시 채널 창 열기 (async 이후 window.open은 차단될 수 있음)
+    const win = window.open(KAKAO_URL, '_blank', 'noopener');
+    try {
+      // 2) 접수 저장 + 접수번호 발급 (서버 시퀀스)
+      let refNo = '';
+      if (onRecordOrder) {
+        const saved = await onRecordOrder({
+          items: selItems.map(i => ({ id:i.id, name:i.gear.name, qty:i.qty, days:i.days })),
+          total, startDate, type:'cart', name: orderName, contact: orderContact,
+          care: careOn, careFee, vat,
+          startTime, returnDate, returnTime, pickupBranch, returnBranch,
+        });
+        if (saved && saved.refNo) refNo = saved.refNo;
+      }
+      // 3) 메시지 만들어 클립보드에 복사
+      const msg = buildMessage(refNo);
+      setLastMsg(msg);
+      const ok = await copyText(msg);
+      setCopyState(ok ? 'copied' : 'failed');
+      // 팝업이 차단됐으면 한 번 더 시도
+      if (!win) { try { window.open(KAKAO_URL, '_blank', 'noopener'); } catch (e) {} }
+    } finally {
+      setSending(false);
     }
-    const msg = buildMessage(refNo);
-    setLastMsg(msg);
-    openKakao(msg).then(ok => setCopyState(ok ? 'copied' : 'failed'));
   };
 
   // 이미 만든 메시지를 다시 복사 (문의를 새로 접수하지 않음)
@@ -500,9 +514,9 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
               </div>
             )}
 
-            <button onClick={sendToKakao} disabled={selItems.length === 0 || hasUnsetDays}
+            <button onClick={sendToKakao} disabled={selItems.length === 0 || hasUnsetDays || !ready || sending}
               className="w-full bg-kakao text-ink py-4 inline-flex items-center justify-center gap-2 hover-lift disabled:opacity-40 disabled:cursor-not-allowed">
-              <Ico.chat className="w-4 h-4"/> {hasUnsetDays ? '대여일을 설정해 주세요' : '내용 복사하고 카카오톡 문의'}
+              <Ico.chat className="w-4 h-4"/> {!ready ? '불러오는 중… 잠시만요' : sending ? '접수 중…' : hasUnsetDays ? '대여일을 설정해 주세요' : '내용 복사하고 카카오톡 문의'}
             </button>
             <div className="flex items-center justify-between mt-3 gap-3">
               <button onClick={onClear} className="font-mono text-[11px] uppercase tracking-wider text-muted hover:text-ink underline-grow shrink-0">전체 비우기</button>

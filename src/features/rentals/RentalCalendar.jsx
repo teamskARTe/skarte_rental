@@ -5,14 +5,23 @@ import { RentalForm } from './RentalForm';
 
 // readOnly     : 편집(추가·삭제·메모수정) 불가
 // hideIdentity : 대여자·장비명·메모를 가림 (손님용 공개 예약현황)
-export function RentalCalendar({ rentals, equipment, onAdd, onRemove, onUpdate, filterGearId, readOnly, hideIdentity }) {
+export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove, onUpdate, filterGearId, readOnly, hideIdentity }) {
   const now = new Date();
   const [cur, setCur] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState(null); // 날짜 상세
 
   const scoped = filterGearId ? rentals.filter(r => r.gearId === filterGearId) : rentals;
-  const gearName = (id) => (equipment.find(e => e.id === id) || {}).name || id;
+  // 장비 + 세트를 한 목록으로 (선택·이름 표시 공용)
+  const pickOptions = [
+    ...equipment.map(e => ({ id: e.id, label: e.name, stock: e.stock })),
+    ...(sets || []).map(s => ({ id: s.id, label: `[세트] ${s.name}`, stock: 1 })),
+  ];
+  const gearName = (id) => {
+    const e = equipment.find(x => x.id === id); if (e) return e.name;
+    const s = (sets || []).find(x => x.id === id); if (s) return `[세트] ${s.name}`;
+    return id;
+  };
   const short = (s) => s.length > 10 ? s.slice(0,9) + '…' : s;
 
   // 예약자·대여기간(시작일+일수)이 같은 건들을 한 예약으로 묶어 한 줄로 표시합니다.
@@ -172,7 +181,7 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, onUpdate, 
         )}
       </div>
 
-      {adding && <RentalForm equipment={equipment} defaultStart={todayStr} defaultGearId={filterGearId}
+      {adding && <RentalForm equipment={equipment} sets={sets} defaultStart={todayStr} defaultGearId={filterGearId}
         onSave={(list) => { onAdd(list); setAdding(false); }} onClose={() => setAdding(false)}/>}
 
       {/* 날짜 상세 모달 */}
@@ -233,6 +242,21 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, onUpdate, 
                     ))}
                   </div>
 
+                  {/* 장비·세트 추가 (관리자) */}
+                  {!readOnly && (
+                    <GroupAdder options={pickOptions}
+                      onAdd={(id, qty) => {
+                        const newItem = {
+                          id: `r${Date.now().toString().slice(-6)}${Math.floor(Math.random()*100)}`,
+                          gearId: id, qty,
+                          renter: g.renter, start: g.start, days: g.days,
+                          startTime: g.startTime, endTime: g.endTime, memo: g.memo || '',
+                        };
+                        if (onAdd) onAdd([newItem]);
+                        setSelected(s => ({ ...s, items: s.items.map(x => x.key === g.key ? { ...x, items: [...x.items, newItem] } : x) }));
+                      }}/>
+                  )}
+
                   {/* 메모 (예약 단위) */}
                   {!hideIdentity && (
                     <GroupMemo group={g} readOnly={readOnly}
@@ -249,6 +273,26 @@ export function RentalCalendar({ rentals, equipment, onAdd, onRemove, onUpdate, 
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// 예약에 장비·세트 추가 (관리자 전용)
+function GroupAdder({ options, onAdd }) {
+  const [pick, setPick] = useState('');
+  const [qty, setQty] = useState(1);
+  return (
+    <div className="mt-2 flex gap-1.5">
+      <select value={pick} onChange={e => setPick(e.target.value)}
+        className="flex-1 min-w-0 text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-transparent">
+        <option value="">+ 장비·세트 추가…</option>
+        {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+      </select>
+      <input type="number" min="1" value={qty} onChange={e => setQty(e.target.value)}
+        className="w-14 text-[13px] font-mono text-center border border-line focus:border-ink outline-none px-1 py-1.5 bg-transparent" aria-label="수량"/>
+      <button onClick={() => { if (!pick) return; onAdd(pick, Math.max(1, parseInt(qty) || 1)); setPick(''); setQty(1); }}
+        disabled={!pick}
+        className="shrink-0 text-[12px] border border-ink px-3 py-1.5 hover-lift disabled:opacity-40 disabled:cursor-not-allowed">추가</button>
     </div>
   );
 }

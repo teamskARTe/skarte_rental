@@ -4,7 +4,7 @@ import { Ico } from '../../components/Ico';
 import { RentalCalendar } from '../rentals/RentalCalendar';
 import { won } from '../../lib/format';
 
-export function EquipDetailModal({ item, rentals, equipment, onAdd, onRemove, onUpdate, onClose, onEdit }) {
+export function EquipDetailModal({ item, rentals, equipment, sets = [], onAdd, onRemove, onUpdate, onClose, onEdit }) {
   const [view, setView] = useState('info'); // info | calendar
   useEffect(() => {
     const esc = (e) => e.key === 'Escape' && onClose();
@@ -57,10 +57,12 @@ export function EquipDetailModal({ item, rentals, equipment, onAdd, onRemove, on
           {view==='info' && (
             <div className="grid md:grid-cols-2 gap-8">
               <div>
-                <div className="aspect-[4/3] mb-6 border border-line flex items-center justify-center bg-[#F7F7F7]">
-                  <Ico.cam className="w-16 h-16 text-muted/40"/>
+                <div className="aspect-[4/3] mb-6 border border-line flex items-center justify-center bg-[#F7F7F7] overflow-hidden">
+                  {item.imageUrl
+                    ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover"/>
+                    : <Ico.cam className="w-16 h-16 text-muted/40"/>}
                 </div>
-                <div className="font-mono text-[12px] uppercase tracking-wider text-muted mb-3">— 사양</div>
+                <div className="font-mono text-[12px] uppercase tracking-wider text-muted mb-3">— 구성품</div>
                 <ul className="space-y-2 text-[14px]">
                   {(item.specs || (item.sub ? item.sub.split(',').map(s=>s.trim()).filter(Boolean) : ['등록된 비고 없음'])).map((s,i) => (
                     <li key={i} className="flex gap-3 border-b border-line pb-2">
@@ -116,7 +118,7 @@ export function EquipDetailModal({ item, rentals, equipment, onAdd, onRemove, on
               <p className="text-[13px] text-muted mb-4">
                 <span className="font-bold text-ink">{item.name}</span>의 대여 일정만 표시됩니다. 일정 추가 시 이 장비가 기본 선택됩니다.
               </p>
-              <RentalCalendar rentals={rentals} equipment={equipment} onAdd={onAdd} onRemove={onRemove} onUpdate={onUpdate} filterGearId={item.id}/>
+              <RentalCalendar rentals={rentals} equipment={equipment} sets={sets} onAdd={onAdd} onRemove={onRemove} onUpdate={onUpdate} filterGearId={item.id}/>
             </div>
           )}
         </div>

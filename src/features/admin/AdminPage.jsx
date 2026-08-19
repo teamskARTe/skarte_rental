@@ -152,6 +152,23 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
     setEditing(null);
   };
   const delItem = (id) => { if (confirm('이 장비를 삭제할까요?')) setEquipment(prev => prev.filter(e => e.id !== id)); };
+
+  // 현재 화면 필터에 맞는 장비인지
+  const gearMatch = (e) => (gearCat==='all' || e.cat===gearCat)
+    && (gearQuery==='' || e.name.toLowerCase().includes(gearQuery.toLowerCase()) || (e.sub||'').includes(gearQuery));
+  const visibleGear = equipment.filter(gearMatch);
+  // 장비 순서 이동: 화면에 보이는 이웃과 위치를 맞바꿔 전체 배열에 반영
+  const moveGear = (id, dir) => setEquipment(prev => {
+    const visible = prev.filter(gearMatch);
+    const vIdx = visible.findIndex(e => e.id === id);
+    const neighbor = visible[vIdx + dir];
+    if (!neighbor) return prev;
+    const a = prev.findIndex(e => e.id === id);
+    const b = prev.findIndex(e => e.id === neighbor.id);
+    const arr = [...prev];
+    [arr[a], arr[b]] = [arr[b], arr[a]];
+    return arr;
+  });
   const resetAll = () => { if (confirm('장비 목록을 기본값으로 초기화할까요? (등록·수정 내역이 사라집니다)')) setEquipment(DEFAULT_EQUIPMENT); };
 
   const totalStock = equipment.reduce((a,e)=>a+e.stock,0);
@@ -255,7 +272,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
             </div>
 
             <RentalCalendar
-              rentals={rentals} equipment={equipment}
+              rentals={rentals} equipment={equipment} sets={sets}
               onAdd={(list) => setRentals(prev => [...prev, ...list])}
               onRemove={(id) => setRentals(prev => prev.filter(x => x.id !== id))}
               onUpdate={(ids, patch) => setRentals(prev => prev.map(r => ids.includes(r.id) ? { ...r, ...patch } : r))}/>
@@ -290,9 +307,20 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
             </div>
           </div>
           <div className="border border-line divide-y divide-line">
-            {equipment.filter(e => (gearCat==='all' || e.cat===gearCat) && (gearQuery==='' || e.name.toLowerCase().includes(gearQuery.toLowerCase()) || e.sub.includes(gearQuery))).map(e => (
+            {visibleGear.map((e, vi) => (
               <div key={e.id} onClick={() => setViewing(e)}
                 className="flex items-center gap-2 md:gap-4 px-3 md:px-4 py-3 hover:bg-[#F7F7F7] cursor-pointer">
+                {/* 순서 이동 */}
+                <div className="flex flex-col shrink-0">
+                  <button onClick={(ev) => { ev.stopPropagation(); moveGear(e.id, -1); }} disabled={vi===0}
+                    className="text-muted hover:text-ink disabled:opacity-20 disabled:cursor-not-allowed leading-none" aria-label="위로">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 15l6-6 6 6"/></svg>
+                  </button>
+                  <button onClick={(ev) => { ev.stopPropagation(); moveGear(e.id, 1); }} disabled={vi===visibleGear.length-1}
+                    className="text-muted hover:text-ink disabled:opacity-20 disabled:cursor-not-allowed leading-none" aria-label="아래로">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+                </div>
                 <span className="hidden md:block font-mono text-[11px] text-muted w-16 shrink-0">#{e.id.toUpperCase()}</span>
                 <span className="font-mono text-[11px] text-muted w-12 md:w-20 shrink-0 uppercase">{CATEGORIES.find(c=>c.id===e.cat)?.label}</span>
                 <span className="flex-1 min-w-0">
@@ -308,10 +336,13 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                 </div>
               </div>
             ))}
-            {equipment.filter(e => (gearCat==='all' || e.cat===gearCat) && (gearQuery==='' || e.name.toLowerCase().includes(gearQuery.toLowerCase()) || e.sub.includes(gearQuery))).length === 0 && (
+            {visibleGear.length === 0 && (
               <div className="px-4 py-12 text-center text-muted text-[14px]">{gearQuery ? '검색 결과가 없습니다.' : '이 카테고리에 등록된 장비가 없습니다.'}</div>
             )}
           </div>
+          {visibleGear.length > 1 && (
+            <p className="text-[12px] text-muted mt-2">↑↓ 화살표로 장비 순서를 바꿀 수 있어요. {gearQuery && '(검색 중에는 검색 결과 안에서만 이동돼요)'}</p>
+          )}
         </div>
       )}
 
@@ -994,7 +1025,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
       {tab==='works' && (
         <div>
           <div className="flex justify-between items-center mb-5">
-            <p className="text-[14px] text-muted">홈 화면 "스케아트 장비 촬영 영상" 섹션입니다. 유튜브 링크와 설명을 넣으면 영상을 누를 때 좌측 영상·우측 설명 팝업이 떠요. <span className="text-ink">아래 "변경사항 저장"을 눌러야 반영</span>됩니다.</p>
+            <p className="text-[14px] text-muted">홈 화면 "스케아트 렌탈 장비 촬영 영상" 섹션입니다. 유튜브 링크와 설명을 넣으면 영상을 누를 때 좌측 영상·우측 설명 팝업이 떠요. <span className="text-ink">아래 "변경사항 저장"을 눌러야 반영</span>됩니다.</p>
             <button onClick={() => setDWorks(prev => [...prev, { id:'wk_'+Date.now().toString().slice(-6), youtubeId:'', title:'', gear:'', desc:'' }])}
               className="text-[13px] bg-ink text-bg px-4 py-2 hover-lift inline-flex items-center gap-2 shrink-0"><Ico.plus className="w-3.5 h-3.5"/> 영상 추가</button>
           </div>
@@ -1068,7 +1099,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
       )}
 
       {editing && <EquipForm form={editing} onSave={saveItem} onClose={() => setEditing(null)}/>}
-      {viewing && <EquipDetailModal item={viewing} rentals={rentals} equipment={equipment}
+      {viewing && <EquipDetailModal item={viewing} rentals={rentals} equipment={equipment} sets={sets}
         onAdd={(list) => setRentals(prev => [...prev, ...list])}
         onRemove={(id) => setRentals(prev => prev.filter(x => x.id !== id))}
         onUpdate={(ids, patch) => setRentals(prev => prev.map(r => ids.includes(r.id) ? { ...r, ...patch } : r))}

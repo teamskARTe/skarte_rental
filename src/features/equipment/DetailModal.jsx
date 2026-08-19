@@ -67,7 +67,7 @@ export function DetailModal({ item, onClose, onAdd, wishlist, onToggleWish, rent
 
           <div className="grid md:grid-cols-2 gap-8">
             <div>
-              <div className="font-mono text-[12px] uppercase tracking-wider text-muted mb-3">— 사양</div>
+              <div className="font-mono text-[12px] uppercase tracking-wider text-muted mb-3">— 구성품</div>
               <ul className="space-y-2 text-[14px]">
                 {(item.specs || (item.sub ? item.sub.split(',').map(s=>s.trim()).filter(Boolean) : [])).map((s,i) => (
                   <li key={i} className="flex gap-3 border-b border-line pb-2">

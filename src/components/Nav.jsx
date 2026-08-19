@@ -32,7 +32,10 @@ export function Nav({ page, setPage, setCategory, cartCount, onCartOpen, user, o
       <div className="max-w-[1400px] mx-auto px-6 md:px-10 h-16 flex items-center justify-between">
         <button onClick={() => setPage('home')} className="flex items-center gap-2.5 shrink-0">
           <img src={LOGO_BLACK} alt="skARTe Rental" className="h-7 md:h-8 w-auto"/>
-          <span className="hidden sm:inline font-display text-xl md:text-2xl tracking-tight leading-none">skARTe Rental</span>
+          <span className="hidden sm:flex flex-col leading-none">
+            <span className="font-display text-xl md:text-2xl tracking-tight leading-none">skARTe Rental</span>
+            <span className="text-[10px] md:text-[11px] text-muted tracking-[0.15em] mt-0.5">스케아트 렌탈</span>
+          </span>
         </button>
         {/* 가로폭이 좁아지면 간격을 줄이고, 그래도 모자라면 각 항목을 말줄임 처리합니다 */}
         <div className="hidden md:flex items-center gap-4 lg:gap-8 text-[13px] tracking-tight min-w-0 flex-1 justify-center px-4 overflow-hidden">

@@ -3,8 +3,14 @@ import { Ico } from '../../components/Ico';
 
 // 한 사람(또는 팀) 이름으로 여러 장비를 같은 기간에 한 번에 등록합니다.
 // 저장 시 장비별로 rental 한 건씩 만들어 배열로 넘깁니다.
-export function RentalForm({ equipment, defaultStart, defaultGearId, onSave, onClose }) {
-  const first = defaultGearId || equipment[0]?.id || '';
+export function RentalForm({ equipment, sets = [], defaultStart, defaultGearId, onSave, onClose }) {
+  // 장비 + 세트를 한 목록으로 (선택용)
+  const pickOptions = [
+    ...equipment.map(e => ({ id: e.id, label: e.name, stock: e.stock })),
+    ...(sets || []).map(s => ({ id: s.id, label: `[세트] ${s.name}`, stock: 1 })),
+  ];
+  const optOf = (id) => pickOptions.find(o => o.id === id);
+  const first = defaultGearId || pickOptions[0]?.id || '';
   const [renter, setRenter] = useState('');
   const [start, setStart] = useState(defaultStart);
   const [startTime, setStartTime] = useState('10:00');
@@ -31,7 +37,7 @@ export function RentalForm({ equipment, defaultStart, defaultGearId, onSave, onC
     return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
   })();
 
-  const gearOf = (id) => equipment.find(e => e.id === id);
+  const gearOf = (id) => optOf(id);
   const patchRow = (i, patch) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, ...patch } : r));
   const removeRow = (i) => setRows(rs => rs.filter((_, idx) => idx !== i));
   const addRow = () => {
@@ -114,7 +120,7 @@ export function RentalForm({ equipment, defaultStart, defaultGearId, onSave, onC
                   <div key={i} className="flex items-center gap-1.5 border border-line px-2 py-2">
                     <select value={r.gearId} onChange={e=>patchRow(i, { gearId: e.target.value })}
                       className="flex-1 min-w-0 text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-transparent">
-                      {equipment.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                      {pickOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
                     </select>
                     <label className="text-[11px] text-muted shrink-0">수량</label>
                     <input type="number" min="1" value={r.qty} onChange={e=>patchRow(i, { qty: e.target.value })}
@@ -130,8 +136,8 @@ export function RentalForm({ equipment, defaultStart, defaultGearId, onSave, onC
             <div className="flex gap-1.5 mt-2">
               <select value={addGearId} onChange={e=>setAddGearId(e.target.value)}
                 className="flex-1 min-w-0 text-[13px] border border-line focus:border-ink outline-none px-2 py-2 bg-transparent">
-                <option value="">+ 장비 추가…</option>
-                {equipment.map(e => <option key={e.id} value={e.id}>{e.name} (재고 {e.stock})</option>)}
+                <option value="">+ 장비·세트 추가…</option>
+                {pickOptions.map(o => <option key={o.id} value={o.id}>{o.label}{o.stock != null ? ` (재고 ${o.stock})` : ''}</option>)}
               </select>
               <button onClick={addRow} disabled={!addGearId}
                 className="shrink-0 text-[12px] border border-ink px-4 py-2 hover-lift disabled:opacity-40 disabled:cursor-not-allowed">추가</button>

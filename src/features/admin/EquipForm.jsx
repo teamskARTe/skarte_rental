@@ -6,19 +6,26 @@ import { ImageInput } from '../../components/ImageInput';
 export function EquipForm({ form: initial, onSave, onClose }) {
   const CATEGORIES = useContext(CategoriesCtx);
   const [form, setForm] = useState(initial);
+  // 수정 중 실수로 닫히지 않도록, 바깥 클릭·Esc로는 닫지 않고 X 버튼으로만 닫습니다.
   useEffect(() => {
-    const esc = (e) => e.key === 'Escape' && onClose();
-    document.addEventListener('keydown', esc);
     document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', esc); document.body.style.overflow = ''; };
+    return () => { document.body.style.overflow = ''; };
   }, []);
   const setSpec = (i, v) => setForm(f => ({ ...f, specs: f.specs.map((s,idx)=>idx===i?v:s) }));
   const addSpec = () => setForm(f => ({ ...f, specs: [...(f.specs||[]), ''] }));
   const delSpec = (i) => setForm(f => ({ ...f, specs: f.specs.filter((_,idx)=>idx!==i) }));
+  // 구성품 순서 이동 (위/아래)
+  const moveSpec = (i, dir) => setForm(f => {
+    const arr = [...(f.specs || [])];
+    const j = i + dir;
+    if (j < 0 || j >= arr.length) return f;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    return { ...f, specs: arr };
+  });
 
   return (
-    <div className="fixed inset-0 z-50 modal-backdrop flex items-end md:items-center justify-center p-0 md:p-6 fade-in" onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} className="bg-bg w-full md:max-w-lg max-h-[92vh] overflow-y-auto border border-ink">
+    <div className="fixed inset-0 z-50 modal-backdrop flex items-end md:items-center justify-center p-0 md:p-6 fade-in">
+      <div className="bg-bg w-full md:max-w-lg max-h-[92vh] overflow-y-auto border border-ink">
         <div className="sticky top-0 bg-bg border-b border-line px-6 py-4 flex items-center justify-between">
           <div className="font-mono text-[12px] uppercase tracking-wider text-muted">{form._new ? '장비 등록' : '장비 수정'}</div>
           <button onClick={onClose} className="p-1 hover:rotate-90 transition-transform"><Ico.close className="w-5 h-5"/></button>
@@ -69,22 +76,36 @@ export function EquipForm({ form: initial, onSave, onClose }) {
             </div>
           </div>
           <div>
-            <label className="font-mono text-[11px] uppercase tracking-wider text-muted">스펙 (개수 제한 없음)</label>
+            <label className="font-mono text-[11px] uppercase tracking-wider text-muted">구성품 (개수 제한 없음)</label>
             <div className="space-y-2 mt-1">
-              {(form.specs && form.specs.length ? form.specs : ['']).map((s,i) => (
-                <div key={i} className="flex gap-2">
-                  <input value={s||''} onChange={e=>setSpec(i,e.target.value)}
-                    className="flex-1 border border-line focus:border-ink outline-none px-3 py-2.5 text-[13px] bg-transparent" placeholder={`스펙 ${i+1}`}/>
-                  <button onClick={()=>delSpec(i)} className="shrink-0 border border-line hover:border-ink px-2.5 text-muted hover:text-ink" aria-label="스펙 삭제">
-                    <Ico.trash className="w-4 h-4"/>
-                  </button>
-                </div>
-              ))}
+              {(() => {
+                const list = form.specs && form.specs.length ? form.specs : [''];
+                return list.map((s,i) => (
+                  <div key={i} className="flex gap-2 items-stretch">
+                    {/* 순서 이동 */}
+                    <div className="flex flex-col shrink-0">
+                      <button onClick={()=>moveSpec(i,-1)} disabled={i===0}
+                        className="border border-line hover:border-ink px-1.5 flex-1 flex items-center text-muted hover:text-ink disabled:opacity-25 disabled:cursor-not-allowed" aria-label="위로">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 15l6-6 6 6"/></svg>
+                      </button>
+                      <button onClick={()=>moveSpec(i,1)} disabled={i===list.length-1}
+                        className="border border-line border-t-0 hover:border-ink px-1.5 flex-1 flex items-center text-muted hover:text-ink disabled:opacity-25 disabled:cursor-not-allowed" aria-label="아래로">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 9l6 6 6-6"/></svg>
+                      </button>
+                    </div>
+                    <input value={s||''} onChange={e=>setSpec(i,e.target.value)}
+                      className="flex-1 border border-line focus:border-ink outline-none px-3 py-2.5 text-[13px] bg-transparent" placeholder={`구성품 ${i+1}`}/>
+                    <button onClick={()=>delSpec(i)} className="shrink-0 border border-line hover:border-ink px-2.5 text-muted hover:text-ink" aria-label="구성품 삭제">
+                      <Ico.trash className="w-4 h-4"/>
+                    </button>
+                  </div>
+                ));
+              })()}
               <button onClick={addSpec} className="w-full border border-dashed border-line hover:border-ink text-[12px] text-muted hover:text-ink py-2 inline-flex items-center justify-center gap-1.5">
-                <Ico.plus className="w-3.5 h-3.5"/> 스펙 추가
+                <Ico.plus className="w-3.5 h-3.5"/> 구성품 추가
               </button>
             </div>
-            <p className="text-[11px] text-muted mt-1.5">스펙은 장비 상세에서 전부 표시돼요. (목록 카드에는 부제만 노출)</p>
+            <p className="text-[11px] text-muted mt-1.5">구성품은 장비 상세에서 전부 표시돼요. (목록 카드에는 부제만 노출) · 위/아래 화살표로 순서를 바꿀 수 있어요.</p>
           </div>
           <button onClick={() => onSave(form)} className="w-full bg-ink text-bg py-4 text-[13px] hover-lift mt-2">
             {form._new ? '등록하기' : '저장하기'}
