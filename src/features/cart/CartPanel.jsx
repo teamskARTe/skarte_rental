@@ -106,11 +106,15 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
   // ── 픽업/반납 시간 · 장소 ──
   // 렌탈 장소와 반납 장소는 서로 다르게 선택할 수 있습니다.
   const [startTime, setStartTime] = useState('10:00');
-  const [returnTime, setReturnTime] = useState('18:00');
+  const [returnTime, setReturnTime] = useState('10:00');
+  // 반납 시간을 직접 만졌는지. 안 만졌으면 픽업 시간을 따라가서 정확히 24시간이 되게 합니다.
+  const [returnTimeTouched, setReturnTimeTouched] = useState(false);
+  const changeStartTime = (v) => { setStartTime(v); if (!returnTimeTouched) setReturnTime(v); };
+  const changeReturnTime = (v) => { setReturnTime(v); setReturnTimeTouched(true); };
   const [pickupBranch, setPickupBranch] = useState(BRANCHES[0].id);
   const [returnBranch, setReturnBranch] = useState(BRANCHES[0].id);
 
-  // 반납일 = 시작일 + (선택 항목 중 가장 긴 대여일수 - 1)
+  // 반납일 = 시작일 + 가장 긴 대여일수 (24시간 기준: 1일 = 다음 날 같은 시각 반납)
   // toISOString()은 UTC로 변환돼 KST 기준 하루가 밀리므로 로컬 기준으로 직접 포맷합니다.
   const toLocalISO = (d) =>
     `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -118,7 +122,7 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
   const returnDate = (() => {
     if (!startDate || maxDays < 1) return '';
     const d = new Date(startDate + 'T00:00:00');
-    d.setDate(d.getDate() + maxDays - 1);
+    d.setDate(d.getDate() + maxDays);
     return toLocalISO(d);
   })();
 
@@ -132,10 +136,10 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
       const sub = calc(i.gear.price, i.days) * i.qty;
       const dd = parseInt(i.days) || 0;
       const disc = dd >= 7 ? ' (-20%)' : dd >= 3 ? ' (-10%)' : '';
-      // 항목별 종료일 (시작일 + 일수 - 1)
+      // 항목별 반납일 (24시간 기준: 시작일 + 일수)
       let endStr = '';
       if (startDate) {
-        const e = new Date(startDate + 'T00:00:00'); e.setDate(e.getDate() + Math.max(1, i.days) - 1);
+        const e = new Date(startDate + 'T00:00:00'); e.setDate(e.getDate() + Math.max(1, i.days));
         endStr = ` (~${e.getMonth()+1}.${String(e.getDate()).padStart(2,'0')})`;
       }
       return `${String(idx+1).padStart(2,'0')}. ${i.gear.name}\n    ${i.days}일 × ${i.qty}대${disc}${endStr} · ${won(sub)}`;
@@ -433,7 +437,7 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                       onChange={e => setStartDate(e.target.value)}
                       className="w-full border border-line focus:border-ink outline-none px-3 py-2.5 text-[14px] bg-bg"/>
                     <input type="time" value={startTime}
-                      onChange={e => setStartTime(e.target.value)}
+                      onChange={e => changeStartTime(e.target.value)}
                       className="w-full border border-line focus:border-ink outline-none px-3 py-2.5 text-[14px] bg-bg"/>
                   </div>
                   <div className="flex gap-1.5 mt-2">
@@ -454,7 +458,7 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                       {returnDate || '—'}
                     </div>
                     <input type="time" value={returnTime}
-                      onChange={e => setReturnTime(e.target.value)}
+                      onChange={e => changeReturnTime(e.target.value)}
                       className="w-full border border-line focus:border-ink outline-none px-3 py-2.5 text-[14px] bg-bg"/>
                   </div>
                   <div className="flex gap-1.5 mt-2">
@@ -466,7 +470,7 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                     ))}
                   </div>
                   <p className="text-[12px] text-muted mt-1.5">
-                    반납일은 가장 긴 대여 일수({maxDays || 0}일) 기준으로 자동 계산돼요. 픽업·반납 지점을 다르게 선택하실 수 있습니다.
+                    1일 = 24시간 기준이에요. 반납일은 가장 긴 대여 일수({maxDays || 0}일) 뒤 같은 시각으로 자동 계산돼요(예: 20일 22시 픽업 → 21일 22시 반납). 픽업·반납 지점을 다르게 선택하실 수 있습니다.
                   </p>
                 </div>
 
