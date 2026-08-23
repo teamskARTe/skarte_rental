@@ -170,9 +170,11 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
       let refNo = '';
       if (onRecordOrder) {
         const saved = await onRecordOrder({
-          items: selItems.map(i => ({ id:i.id, name:i.gear.name, qty:i.qty, days:i.days })),
+          // price(단가)를 함께 저장해 두면 견적서에서 나중에 단가가 바뀌어도 접수 당시 금액이 정확합니다.
+          items: selItems.map(i => ({ id:i.id, name:i.gear.name, qty:i.qty, days:i.days, price:i.gear.price })),
           total, startDate, type:'cart', name: orderName, contact: orderContact,
           care: careOn, careFee, vat,
+          couponLabel: couponSaved > 0 ? selCoupon.label : '', couponSaved,
           startTime, returnDate, returnTime, pickupBranch, returnBranch,
         });
         if (saved && saved.refNo) refNo = saved.refNo;

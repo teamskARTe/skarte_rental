@@ -3,6 +3,8 @@ import { Ico } from '../../components/Ico';
 import { ImageInput } from '../../components/ImageInput';
 import { DEFAULT_EQUIPMENT, isAdminUser, roleLabel, BRANCHES, branchName } from '../../data/defaults';
 import { EquipDetailModal } from './EquipDetailModal';
+import { QuoteModal } from './QuoteModal';
+import { ContractModal } from './ContractModal';
 import { EquipForm } from './EquipForm';
 import { RentalCalendar } from '../rentals/RentalCalendar';
 import { calcPrice, priceLabel, won, copyText } from '../../lib/format';
@@ -18,6 +20,8 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const [tab, setTab] = useState('dash');
   const [editing, setEditing] = useState(null); // null | 'new' | item
   const [viewing, setViewing] = useState(null); // 상세/캘린더 보기 장비
+  const [quoteOrder, setQuoteOrder] = useState(null); // 견적서 대상 접수
+  const [contractOrder, setContractOrder] = useState(null); // 계약서 대상 접수
   const [gearCat, setGearCat] = useState('all');
   const [gearQuery, setGearQuery] = useState('');
   const [orderQuery, setOrderQuery] = useState('');
@@ -620,6 +624,14 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                            st==='accepted' && o.type==='cart' ? '예약 일정에 등록됨' : ''}
                         </span>
                         <div className="flex gap-2 shrink-0">
+                          {o.type !== 'extra' && (
+                            <button onClick={() => setQuoteOrder(o)}
+                              className="text-[12px] border border-ink px-3 py-1.5 hover-lift">견적서</button>
+                          )}
+                          {o.type !== 'extra' && (
+                            <button onClick={() => setContractOrder(o)}
+                              className="text-[12px] border border-ink px-3 py-1.5 hover-lift">계약서</button>
+                          )}
                           {o.type !== 'extra' && editOrderId !== o.id && (
                             <button onClick={() => startEditOrder(o)}
                               className="text-[12px] border border-line hover:border-ink px-3 py-1.5">수정</button>
@@ -1102,6 +1114,8 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
         </div>
       )}
 
+      {quoteOrder && <QuoteModal order={quoteOrder} equipment={equipment} sets={sets} onClose={() => setQuoteOrder(null)}/>}
+      {contractOrder && <ContractModal order={contractOrder} equipment={equipment} sets={sets} onClose={() => setContractOrder(null)}/>}
       {editing && <EquipForm form={editing} onSave={saveItem} onClose={() => setEditing(null)}/>}
       {viewing && <EquipDetailModal item={viewing} rentals={rentals} equipment={equipment} sets={sets}
         onAdd={(list) => setRentals(prev => [...prev, ...list])}

@@ -58,3 +58,16 @@
   ::selection { background: var(--ink); color: var(--bg); }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* ── 견적서 인쇄 (A4) ── */
+  @media print {
+    @page { size: A4; margin: 12mm; }
+    body.printing > #root { display: none !important; }
+    body.printing .no-print { display: none !important; }
+    body.printing .quote-overlay { position: static !important; inset: auto !important; background: none !important;
+      padding: 0 !important; display: block !important; overflow: visible !important; }
+    body.printing .quote-overlay > * { max-width: none !important; margin: 0 !important; }
+    body.printing .quote-doc { padding: 0 !important; }
+    body.printing .quote-doc table { page-break-inside: auto; }
+    body.printing .quote-doc tr { page-break-inside: avoid; }
+  }

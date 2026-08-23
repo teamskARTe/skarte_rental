@@ -259,7 +259,8 @@ export function App() {
   // 같은 사람(이름·연락처)이 같은 렌탈·반납 일정으로 다시 보내면, 새 번호를 만들지 않고
   // 기존 대기중 접수를 같은 접수번호로 "수정"합니다. (재제출 시 번호가 바뀌던 문제 해결)
   const recordOrder = async ({ items, total, startDate, type = 'cart', gear, situation, contact, name,
-    startTime, returnDate, returnTime, pickupBranch, returnBranch, care, careFee, vat }) => {
+    startTime, returnDate, returnTime, pickupBranch, returnBranch, care, careFee, vat,
+    couponLabel, couponSaved }) => {
     const norm = (s) => (s || '').trim();
     const fields = {
       type,
@@ -274,6 +275,8 @@ export function App() {
       care: !!care,
       careFee: careFee || 0,
       vat: vat || 0,
+      couponLabel: couponLabel || '',
+      couponSaved: couponSaved || 0,
       gear: gear || '',
       situation: situation || '',
       contact: norm(contact),
