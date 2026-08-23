@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Ico } from '../../components/Ico';
-import { RENTAL_COLORS, colorOf, rentalEndStr } from '../../data/defaults';
+import { RENTAL_COLORS, colorOf, rentalEndStr, branchName } from '../../data/defaults';
 import { RentalForm } from './RentalForm';
 
 // readOnly     : 편집(추가·삭제·메모수정) 불가
@@ -32,14 +32,18 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
       if (!map.has(key)) {
         map.set(key, {
           key, renter: r.renter, start: r.start, days: r.days,
-          startTime: r.startTime, endTime: r.endTime, memo: r.memo || '', items: [],
+          startTime: r.startTime, endTime: r.endTime,
+          pickupBranch: r.pickupBranch || '', returnBranch: r.returnBranch || '',
+          memo: r.memo || '', items: [],
         });
       }
       const g = map.get(key);
       g.items.push(r);
-      // 시간·메모는 먼저 들어온 값을 유지하되, 비어 있으면 채웁니다.
+      // 시간·지점·메모는 먼저 들어온 값을 유지하되, 비어 있으면 채웁니다.
       if (!g.startTime && r.startTime) g.startTime = r.startTime;
       if (!g.endTime && r.endTime) g.endTime = r.endTime;
+      if (!g.pickupBranch && r.pickupBranch) g.pickupBranch = r.pickupBranch;
+      if (!g.returnBranch && r.returnBranch) g.returnBranch = r.returnBranch;
       if (!g.memo && r.memo) g.memo = r.memo;
     });
     return [...map.values()];
@@ -205,6 +209,13 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
                       <div className="font-mono text-[12px] text-muted mt-0.5">
                         {g.start}{g.startTime ? ` ${g.startTime}` : ''} → {rentalEndStr(g)}{g.endTime ? ` ${g.endTime}` : ''} ({g.days}일)
                       </div>
+                      {(g.pickupBranch || g.returnBranch) && (
+                        <div className="text-[12px] text-muted mt-0.5">
+                          <span className="text-ink">픽업</span> {g.pickupBranch ? branchName(g.pickupBranch) : '—'}
+                          <span className="mx-1.5">→</span>
+                          <span className="text-ink">반납</span> {g.returnBranch ? branchName(g.returnBranch) : '—'}
+                        </div>
+                      )}
                     </div>
                     {!readOnly && (
                       <button
@@ -250,7 +261,9 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
                           id: `r${Date.now().toString().slice(-6)}${Math.floor(Math.random()*100)}`,
                           gearId: id, qty,
                           renter: g.renter, start: g.start, days: g.days,
-                          startTime: g.startTime, endTime: g.endTime, memo: g.memo || '',
+                          startTime: g.startTime, endTime: g.endTime,
+                          pickupBranch: g.pickupBranch || '', returnBranch: g.returnBranch || '',
+                          memo: g.memo || '',
                         };
                         if (onAdd) onAdd([newItem]);
                         setSelected(s => ({ ...s, items: s.items.map(x => x.key === g.key ? { ...x, items: [...x.items, newItem] } : x) }));

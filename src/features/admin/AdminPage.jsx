@@ -82,6 +82,10 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
             renter: next.name || `문의 #${next.refNo}`,
             start: next.startDate,
             days: parseInt(it.days) || 1,
+            startTime: next.startTime || '',
+            endTime: next.returnTime || '',
+            pickupBranch: next.pickupBranch || '',
+            returnBranch: next.returnBranch || '',
             fromOrder: next.refNo,
           }));
         return [...others, ...rebuilt];

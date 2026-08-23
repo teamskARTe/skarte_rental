@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Ico } from '../../components/Ico';
+import { BRANCHES } from '../../data/defaults';
 
 // 한 사람(또는 팀) 이름으로 여러 장비를 같은 기간에 한 번에 등록합니다.
 // 저장 시 장비별로 rental 한 건씩 만들어 배열로 넘깁니다.
@@ -18,6 +19,8 @@ export function RentalForm({ equipment, sets = [], defaultStart, defaultGearId, 
   const [endTime, setEndTime] = useState('18:00');
   const [rows, setRows] = useState(first ? [{ gearId: first, qty: 1 }] : []);
   const [addGearId, setAddGearId] = useState('');
+  const [pickupBranch, setPickupBranch] = useState(BRANCHES[0].id);
+  const [returnBranch, setReturnBranch] = useState(BRANCHES[0].id);
   const [memo, setMemo] = useState('');
   const [err, setErr] = useState('');
 
@@ -62,6 +65,8 @@ export function RentalForm({ equipment, sets = [], defaultStart, defaultGearId, 
       days: d,
       startTime,
       endTime,
+      pickupBranch,
+      returnBranch,
       memo: m,             // 예약(묶음) 메모 — 같은 예약의 모든 항목에 동일하게 저장
       group: `g${base}`,   // 같은 등록건 묶음 표시용
     })));
@@ -105,6 +110,32 @@ export function RentalForm({ equipment, sets = [], defaultStart, defaultGearId, 
             <p className="text-[12px] text-muted mt-1.5">
               반납일 <span className="font-mono text-ink">{returnDate || '—'}</span> {endTime} (자동 계산)
             </p>
+          </div>
+
+          {/* 픽업·반납 지점 */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="font-mono text-[11px] uppercase tracking-wider text-muted">픽업 지점</label>
+              <div className="flex gap-1.5 mt-1">
+                {BRANCHES.map(b => (
+                  <button key={b.id} type="button" onClick={() => setPickupBranch(b.id)}
+                    className={`flex-1 text-[13px] px-2 py-2 border ${pickupBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-transparent'}`}>
+                    {b.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="font-mono text-[11px] uppercase tracking-wider text-muted">반납 지점</label>
+              <div className="flex gap-1.5 mt-1">
+                {BRANCHES.map(b => (
+                  <button key={b.id} type="button" onClick={() => setReturnBranch(b.id)}
+                    className={`flex-1 text-[13px] px-2 py-2 border ${returnBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-transparent'}`}>
+                    {b.name}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* 장비 목록 */}

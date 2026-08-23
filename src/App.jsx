@@ -332,6 +332,10 @@ export function App() {
             renter: o.name || `문의 #${o.refNo}`,
             start: o.startDate,
             days: it.days || 1,
+            startTime: o.startTime || '',
+            endTime: o.returnTime || '',
+            pickupBranch: o.pickupBranch || '',
+            returnBranch: o.returnBranch || '',
             fromOrder: o.refNo,
           }));
         if (newRentals.length) {
