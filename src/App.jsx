@@ -36,6 +36,7 @@ export function App() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [cart, setCart] = useState(() => store.read('skeart_cart', []));
   const [cartOpen, setCartOpen] = useState(false);
+  const [cartPrefill, setCartPrefill] = useState(null); // 마이페이지에서 기존 문의를 수정할 때 장바구니 초기값
   const [toast, setToast] = useState(null);
 
   // 인증 / 위시 / 주문 / 장비
@@ -255,12 +256,12 @@ export function App() {
   };
 
   // ── 문의 내역 기록 ──
-  // 문의 접수: 접수번호 발급 + 상태(pending) 저장, 저장된 객체 반환
-  // 같은 사람(이름·연락처)이 같은 렌탈·반납 일정으로 다시 보내면, 새 번호를 만들지 않고
-  // 기존 대기중 접수를 같은 접수번호로 "수정"합니다. (재제출 시 번호가 바뀌던 문제 해결)
+  // 접수 방식은 손님이 명시적으로 선택합니다:
+  //  - mode 'new'  : 새 접수번호 발급
+  //  - mode 'edit' : editRefNo(기존 접수번호)의 예약을 이 내용으로 갱신하고 '수정됨'으로 표시
   const recordOrder = async ({ items, total, startDate, type = 'cart', gear, situation, contact, name,
     startTime, returnDate, returnTime, pickupBranch, returnBranch, care, careFee, vat,
-    couponLabel, couponSaved }) => {
+    couponLabel, couponSaved, mode = 'new', editRefNo = '' }) => {
     const norm = (s) => (s || '').trim();
     const fields = {
       type,
@@ -283,18 +284,17 @@ export function App() {
       name: norm(name),
     };
 
-    // 같은 접수 찾기: 연락처가 있고, 이름·연락처·렌탈일·반납일이 모두 같은 '대기중' 장바구니 접수
-    const matchIdx = norm(contact) === '' ? -1 : orders.findIndex(o =>
-      o.type === 'cart' && (o.status || 'pending') === 'pending' &&
-      norm(o.name) === norm(name) && norm(o.contact) === norm(contact) &&
-      (o.startDate || '') === (startDate || '') && (o.returnDate || '') === (returnDate || '')
-    );
-
-    if (matchIdx >= 0) {
-      const existing = orders[matchIdx];
-      const updated = { ...existing, ...fields, date: new Date().toISOString().slice(0,10) };
-      setOrders(prev => prev.map((o, i) => i === matchIdx ? updated : o));
-      return updated;   // 같은 접수번호 유지
+    // 기존 예약 수정: 입력한 접수번호의 예약을 갱신하고 '수정됨' 상태로. 캘린더 예약은
+    // 재수락 시 다시 만들도록 제거합니다. 번호를 못 찾으면 아래 새 접수로 진행합니다.
+    if (mode === 'edit' && editRefNo) {
+      const rno = parseInt(editRefNo);
+      const idx = orders.findIndex(o => o.refNo === rno);
+      if (idx >= 0) {
+        const updated = { ...orders[idx], ...fields, status: 'modified', date: new Date().toISOString().slice(0,10) };
+        setOrders(prev => prev.map((o, i) => i === idx ? updated : o));
+        setRentals(prev => prev.filter(r => r.fromOrder !== rno));
+        return updated;   // 같은 접수번호 유지
+      }
     }
 
     // 새 접수번호: 서버 시퀀스(원자적)로 발급 → 동시에 접수해도 절대 중복되지 않음.
@@ -352,7 +352,25 @@ export function App() {
     }));
   };
 
-  const openCart = () => setCartOpen(true);
+  const openCart = () => { setCartPrefill(null); setCartOpen(true); };
+
+  // 마이페이지 "이 내용으로 수정": 기존 문의 내용을 장바구니에 채우고 '기존 예약 수정' 상태로 엽니다.
+  const editOrderInCart = (order) => {
+    if (cart.length > 0 && !window.confirm('장바구니에 담긴 내용을 이 문의 내용으로 바꿀까요?')) return;
+    setCart((order.items || [])
+      .filter(it => it.id)
+      .map(it => ({ id: it.id, qty: parseInt(it.qty) || 1, days: parseInt(it.days) || 1 })));
+    setCartPrefill({
+      refNo: order.refNo,
+      name: order.name || '', contact: order.contact || '',
+      startDate: order.startDate || '', startTime: order.startTime || '',
+      returnDate: order.returnDate || '', returnTime: order.returnTime || '',
+      pickupBranch: order.pickupBranch || '', returnBranch: order.returnBranch || '',
+      care: !!order.care,
+    });
+    setCartOpen(true);
+    setPage('home');
+  };
 
   return (
     <EquipCtx.Provider value={equipment}>
@@ -371,7 +389,7 @@ export function App() {
         {page === 'mypage' && (user
           ? <MyPage user={user} wishlist={wishlist} orders={orders} cart={cart}
               onLogout={logout} onItemClick={setSelectedItem} onToggleWish={toggleWish}
-              onOpenCart={openCart} setPage={setPage} setCategory={setCategory}/>
+              onOpenCart={openCart} onEditOrder={editOrderInCart} setPage={setPage} setCategory={setCategory}/>
           : <RequireLogin onAuthOpen={() => setAuthOpen(true)}/>)}
         {page === 'admin' && (!isAdmin
           ? <RequireLogin onAuthOpen={() => setAuthOpen(true)}/>
@@ -393,7 +411,7 @@ export function App() {
       </main>
       <Footer setPage={setPage}/>
       {selectedItem && <DetailModal item={selectedItem} onClose={() => setSelectedItem(null)} onAdd={addToCart} wishlist={wishlist} onToggleWish={toggleWish} rentals={rentals}/>}
-      {cartOpen && <CartPanel cart={cart} onClose={() => setCartOpen(false)} onUpdate={updateCart} onRemove={removeFromCart} onClear={clearCart} onRecordOrder={recordOrder} user={user} onAuthOpen={() => setAuthOpen(true)} ready={loaded}/>}
+      {cartOpen && <CartPanel cart={cart} onClose={() => { setCartOpen(false); setCartPrefill(null); }} onUpdate={updateCart} onRemove={removeFromCart} onClear={clearCart} onRecordOrder={recordOrder} user={user} onAuthOpen={() => setAuthOpen(true)} ready={loaded} prefill={cartPrefill}/>}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} onLogin={login} onSignup={signup}/>}
       {page !== 'admin' && <NoticePopup />}
       {cloudFailed && (

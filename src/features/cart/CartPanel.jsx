@@ -4,7 +4,7 @@ import { EquipCtx, SiteCtx, CategoriesCtx } from '../../context';
 import { EQUIPMENT, BRANCHES, branchName } from '../../data/defaults';
 import { copyText, won, KAKAO_URL } from '../../lib/format';
 
-export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecordOrder, user, onAuthOpen, ready = true }) {
+export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecordOrder, user, onAuthOpen, ready = true, prefill = null }) {
   const CATEGORIES = useContext(CategoriesCtx);
   const EQUIPMENT = useContext(EquipCtx);
   const { sets } = useContext(SiteCtx);
@@ -80,7 +80,7 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
   const saved = periodSaved + couponSaved;
 
   // 안심케어 (선택 시 렌탈료의 20%)
-  const [careOn, setCareOn] = useState(false);
+  const [careOn, setCareOn] = useState(!!prefill?.care);
   const careFee = careOn ? Math.round(afterDiscount * 0.20) : 0;
 
   // VAT 10% (모든 장비 가격은 VAT 미포함 → 마지막에 합산)
@@ -89,9 +89,14 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
   const total = beforeVat + vat;
 
   // 대여 시작일 (기본: 내일)
-  const [orderName, setOrderName] = useState('');
-  const [orderContact, setOrderContact] = useState('');
+  const [orderName, setOrderName] = useState(prefill?.name || '');
+  const [orderContact, setOrderContact] = useState(prefill?.contact || '');
+  // 접수 방식: 새 예약(새 접수번호) / 기존 예약 수정(기존 접수번호로 갱신)
+  // 마이페이지에서 "이 내용으로 수정"으로 들어오면 기존 예약 수정 + 접수번호가 자동 세팅됩니다.
+  const [orderMode, setOrderMode] = useState(prefill?.refNo ? 'edit' : 'new'); // 'new' | 'edit'
+  const [editRefNo, setEditRefNo] = useState(prefill?.refNo ? String(prefill.refNo) : '');
   const [startDate, setStartDate] = useState(() => {
+    if (prefill?.startDate) return prefill.startDate;
     const d = new Date(); d.setDate(d.getDate() + 1);
     return d.toISOString().slice(0, 10);
   });
@@ -105,26 +110,32 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
 
   // ── 픽업/반납 시간 · 장소 ──
   // 렌탈 장소와 반납 장소는 서로 다르게 선택할 수 있습니다.
-  const [startTime, setStartTime] = useState('10:00');
-  const [returnTime, setReturnTime] = useState('10:00');
+  const [startTime, setStartTime] = useState(prefill?.startTime || '10:00');
+  const [returnTime, setReturnTime] = useState(prefill?.returnTime || prefill?.startTime || '10:00');
   // 반납 시간을 직접 만졌는지. 안 만졌으면 픽업 시간을 따라가서 정확히 24시간이 되게 합니다.
-  const [returnTimeTouched, setReturnTimeTouched] = useState(false);
+  const [returnTimeTouched, setReturnTimeTouched] = useState(!!prefill?.returnTime);
   const changeStartTime = (v) => { setStartTime(v); if (!returnTimeTouched) setReturnTime(v); };
   const changeReturnTime = (v) => { setReturnTime(v); setReturnTimeTouched(true); };
-  const [pickupBranch, setPickupBranch] = useState(BRANCHES[0].id);
-  const [returnBranch, setReturnBranch] = useState(BRANCHES[0].id);
+  const [pickupBranch, setPickupBranch] = useState(prefill?.pickupBranch || BRANCHES[0].id);
+  const [returnBranch, setReturnBranch] = useState(prefill?.returnBranch || BRANCHES[0].id);
 
   // 반납일 = 시작일 + 가장 긴 대여일수 (24시간 기준: 1일 = 다음 날 같은 시각 반납)
   // toISOString()은 UTC로 변환돼 KST 기준 하루가 밀리므로 로컬 기준으로 직접 포맷합니다.
   const toLocalISO = (d) =>
     `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const maxDays = selItems.reduce((m, i) => Math.max(m, parseInt(i.days) || 0), 0);
-  const returnDate = (() => {
+  // 자동 반납일 = 시작일 + 가장 긴 대여일수 (24시간 기준)
+  const autoReturnDate = (() => {
     if (!startDate || maxDays < 1) return '';
     const d = new Date(startDate + 'T00:00:00');
     d.setDate(d.getDate() + maxDays);
     return toLocalISO(d);
   })();
+  // 반납일은 자동 입력되되 손님이 직접 바꿀 수 있습니다(당일·조기 반납 등).
+  const [returnDateInput, setReturnDateInput] = useState(prefill?.returnDate || '');
+  const [returnDateTouched, setReturnDateTouched] = useState(!!prefill?.returnDate);
+  const returnDate = returnDateTouched && returnDateInput ? returnDateInput : autoReturnDate;
+  const changeReturnDate = (v) => { setReturnDateInput(v); setReturnDateTouched(true); };
 
   // 카카오톡 메시지 복사 상태: null | 'copied' | 'failed'
   const [copyState, setCopyState] = useState(null);
@@ -149,8 +160,9 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
     const p3Line = period3 > 0 ? `\n3일+ 기간 할인(-10%) · -${won(period3)}` : '';
     const rentLine = startDate ? `렌탈 · ${fmtDate(startDate)} ${startTime} · ${branchName(pickupBranch)}\n` : '';
     const backLine = returnDate ? `반납 · ${fmtDate(returnDate)} ${returnTime} · ${branchName(returnBranch)}\n` : '';
-    const whoLine = (orderName || orderContact) ? `${orderName ? `성함 · ${orderName}\n` : ''}${orderContact ? `연락처 · ${orderContact}\n` : ''}` : '';
-    const refLine = refNo ? `접수번호 · #${refNo}\n` : '';
+    // 접수번호·성함·연락처는 한 채팅방에서 여러 문의를 구분할 수 있도록 항상 표시합니다.
+    const refLine = `접수번호 · #${refNo || '(발급 예정)'}\n`;
+    const whoLine = `성함 · ${orderName || '(미입력)'}\n연락처 · ${orderContact || '(미입력)'}\n`;
 
     const careLine = careFee > 0 ? `\n안심케어(+20%) · +${won(careFee)}` : '';
     const vatLine = `\n부가세(VAT 10%) · +${won(vat)}`;
@@ -162,11 +174,13 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
   const [sending, setSending] = useState(false);
   const sendToKakao = async () => {
     if (selItems.length === 0 || hasUnsetDays || !ready || sending) return;
+    // 기존 예약 수정인데 접수번호를 안 적었으면 막습니다.
+    if (orderMode === 'edit' && !editRefNo.trim()) { setCopyState('need-ref'); return; }
     setSending(true);
     // 1) 사용자 클릭 즉시 채널 창 열기 (async 이후 window.open은 차단될 수 있음)
     const win = window.open(KAKAO_URL, '_blank', 'noopener');
     try {
-      // 2) 접수 저장 + 접수번호 발급 (서버 시퀀스)
+      // 2) 접수 저장 + 접수번호 발급/갱신
       let refNo = '';
       if (onRecordOrder) {
         const saved = await onRecordOrder({
@@ -176,6 +190,7 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
           care: careOn, careFee, vat,
           couponLabel: couponSaved > 0 ? selCoupon.label : '', couponSaved,
           startTime, returnDate, returnTime, pickupBranch, returnBranch,
+          mode: orderMode, editRefNo: orderMode === 'edit' ? editRefNo.trim() : '',
         });
         if (saved && saved.refNo) refNo = saved.refNo;
       }
@@ -456,9 +471,9 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                 <div className="mt-4">
                   <label className="text-[13px] font-bold text-ink block mb-2">반납</label>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="w-full border border-line px-3 py-2.5 text-[14px] bg-[#F2F2F2] text-muted font-mono">
-                      {returnDate || '—'}
-                    </div>
+                    <input type="date" value={returnDate} min={startDate || minDate}
+                      onChange={e => changeReturnDate(e.target.value)}
+                      className="w-full border border-line focus:border-ink outline-none px-3 py-2.5 text-[14px] bg-bg"/>
                     <input type="time" value={returnTime}
                       onChange={e => changeReturnTime(e.target.value)}
                       className="w-full border border-line focus:border-ink outline-none px-3 py-2.5 text-[14px] bg-bg"/>
@@ -472,7 +487,7 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                     ))}
                   </div>
                   <p className="text-[12px] text-muted mt-1.5">
-                    1일 = 24시간 기준이에요. 반납일은 가장 긴 대여 일수({maxDays || 0}일) 뒤 같은 시각으로 자동 계산돼요(예: 20일 22시 픽업 → 21일 22시 반납). 픽업·반납 지점을 다르게 선택하실 수 있습니다.
+                    반납일은 대여 일수({maxDays || 0}일) 기준으로 자동 입력되며, <span className="text-ink">직접 바꿀 수 있어요</span>(당일·조기 반납 가능). 요금은 선택한 대여 일수 기준입니다. 픽업·반납 지점도 다르게 선택하실 수 있습니다.
                   </p>
                 </div>
 
@@ -490,6 +505,35 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                   </div>
                 </div>
                 <p className="text-[12px] text-muted mt-1.5">연락처로 나중에 문의 내역을 조회할 수 있어요.</p>
+
+                {/* 접수 방식: 새 예약 / 기존 예약 수정 (택1) */}
+                <div className="mt-4 border-t border-line pt-4">
+                  <label className="text-[13px] font-bold text-ink block mb-2">접수 방식</label>
+                  <div className="space-y-2">
+                    <button type="button" onClick={() => setOrderMode('new')}
+                      className="w-full flex items-center gap-2.5 text-left">
+                      <span className={`w-5 h-5 border flex items-center justify-center shrink-0 ${orderMode==='new' ? 'bg-ink border-ink' : 'border-line'}`}>
+                        {orderMode==='new' && <Ico.check className="w-3.5 h-3.5 text-bg"/>}
+                      </span>
+                      <span className="text-[14px]">새 예약 <span className="text-muted text-[12px]">— 새 접수번호가 발급됩니다</span></span>
+                    </button>
+                    <button type="button" onClick={() => setOrderMode('edit')}
+                      className="w-full flex items-center gap-2.5 text-left">
+                      <span className={`w-5 h-5 border flex items-center justify-center shrink-0 ${orderMode==='edit' ? 'bg-ink border-ink' : 'border-line'}`}>
+                        {orderMode==='edit' && <Ico.check className="w-3.5 h-3.5 text-bg"/>}
+                      </span>
+                      <span className="text-[14px]">기존 예약 수정 <span className="text-muted text-[12px]">— 기존 접수번호로 내용이 갱신됩니다</span></span>
+                    </button>
+                  </div>
+                  {orderMode==='edit' && (
+                    <div className="mt-2 pl-7">
+                      <input value={editRefNo} onChange={e => setEditRefNo(e.target.value.replace(/[^0-9]/g,''))}
+                        placeholder="기존 접수번호 (예: 1015)" inputMode="numeric"
+                        className="w-full border border-line focus:border-ink outline-none px-3 py-2.5 text-[14px] bg-bg font-mono"/>
+                      <p className="text-[12px] text-muted mt-1">이전에 받으신 접수번호를 입력하면 그 예약이 이 내용으로 수정됩니다.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -506,6 +550,12 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
               <div className="font-display text-4xl font-bold leading-none mb-4">{won(total)}</div>
             )}
             {/* 복사 결과 안내 */}
+            {copyState === 'need-ref' && (
+              <div className="mb-3 border border-ink bg-[#FFF7E6] px-4 py-3 fade-in">
+                <div className="text-[13px] font-bold text-ink">기존 접수번호를 입력해 주세요.</div>
+                <div className="text-[12px] text-muted mt-0.5">"기존 예약 수정"을 선택하셨어요. 이전 접수번호를 적거나, "새 예약"으로 바꿔 주세요.</div>
+              </div>
+            )}
             {copyState === 'copied' && (
               <div className="mb-3 border border-ink bg-[#FAFAFA] px-4 py-3 fade-in">
                 <div className="text-[13px] font-bold text-ink mb-0.5">문의 내용이 복사되었습니다</div>

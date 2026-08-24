@@ -45,10 +45,18 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
     setODraft(d => ({ ...d, items: d.items.map((it, i) => i === idx ? { ...it, ...patch } : it) }));
   const removeDraftItem = (idx) =>
     setODraft(d => ({ ...d, items: d.items.filter((_, i) => i !== idx) }));
+  // 장비 + 세트를 한 목록으로 (문의 편집의 추가·이름·단가 공용)
+  const orderPick = [
+    ...equipment.map(e => ({ id: e.id, name: e.name, price: e.price })),
+    ...((sets || []).map(s => ({ id: s.id, name: `[세트] ${s.name}`, price: s.price }))),
+  ];
+  const pickInfo = (id) => orderPick.find(o => o.id === id);
+  const itemPrice = (it) => (it.price != null ? it.price : (pickInfo(it.id)?.price || 0));
+
   const addDraftItem = () => {
-    const g = equipment.find(e => e.id === addGearId);
+    const g = pickInfo(addGearId);
     if (!g) return;
-    setODraft(d => ({ ...d, items: [...(d.items || []), { id: g.id, name: g.name, qty: 1, days: 1 }] }));
+    setODraft(d => ({ ...d, items: [...(d.items || []), { id: g.id, name: g.name, qty: 1, days: 1, price: g.price }] }));
     setAddGearId('');
   };
 
@@ -56,14 +64,68 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const draftTotals = (() => {
     if (!oDraft) return null;
     const rent = (oDraft.items || []).reduce((s, it) => {
-      const g = equipment.find(e => e.id === it.id);
-      const price = g ? g.price : 0;
-      return s + calcPrice(price, parseInt(it.days) || 0) * (parseInt(it.qty) || 0);
+      return s + calcPrice(itemPrice(it), parseInt(it.days) || 0) * (parseInt(it.qty) || 0);
     }, 0);
     const careFee = oDraft.care ? Math.round(rent * 0.20) : 0;
     const vat = Math.round((rent + careFee) * 0.10);
     return { rent, careFee, vat, total: rent + careFee + vat };
   })();
+
+  // ── 캘린더 → 문의 연동 ──
+  // 캘린더에서 예약(장비·일수·수량·일정·지점)을 바꾸면, 그 예약과 연결된 문의(fromOrder)도
+  // 같은 내용으로 갱신합니다. 세트 항목은 캘린더에 없으므로 문의에 있던 세트는 그대로 보존합니다.
+  const syncOrdersFromRentals = (rentalsArr) => {
+    setOrders(prev => prev.map(o => {
+      if (o.type !== 'cart' || o.refNo == null) return o;
+      const rs = rentalsArr.filter(r => r.fromOrder === o.refNo);
+      if (rs.length === 0) return o; // 연결된 캘린더 예약이 없으면 건드리지 않음
+      const setItems = (o.items || []).filter(it => String(it.id).startsWith('set_')); // 세트 보존
+      const gearItems = rs.map(r => {
+        const existing = (o.items || []).find(it => it.id === r.gearId);
+        const info = pickInfo(r.gearId);
+        return {
+          id: r.gearId,
+          name: existing?.name || info?.name || r.gearId,
+          qty: parseInt(r.qty) || 1,
+          days: parseInt(r.days) || 1,
+          price: existing?.price != null ? existing.price : (info?.price ?? 0),
+        };
+      });
+      const items = [...gearItems, ...setItems];
+      const f = rs[0];
+      const maxDays = rs.reduce((m, r) => Math.max(m, parseInt(r.days) || 0), 0);
+      let returnDate = o.returnDate;
+      if (f.start && maxDays >= 1) {
+        const d = new Date(f.start + 'T00:00:00'); d.setDate(d.getDate() + maxDays);
+        returnDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      }
+      const rentSum = items.reduce((s, it) => s + calcPrice(itemPrice(it), parseInt(it.days) || 0) * (parseInt(it.qty) || 0), 0);
+      const couponSaved = o.couponSaved || 0;
+      const rental = Math.max(0, rentSum - couponSaved);
+      const careFee = o.care ? Math.round(rental * 0.20) : 0;
+      const vat = Math.round((rental + careFee) * 0.10);
+      return { ...o, items,
+        startDate: f.start || o.startDate, startTime: f.startTime || o.startTime,
+        returnDate, returnTime: f.endTime || o.returnTime,
+        pickupBranch: f.pickupBranch || o.pickupBranch, returnBranch: f.returnBranch || o.returnBranch,
+        careFee, vat, total: rental + careFee + vat };
+    }));
+  };
+  // 캘린더 편집 핸들러 (rentals 갱신 + 연결된 문의 동기화)
+  const addRentals    = (list)       => { const next = [...rentals, ...list]; setRentals(next); syncOrdersFromRentals(next); };
+  const removeRental  = (id)         => { const next = rentals.filter(x => x.id !== id); setRentals(next); syncOrdersFromRentals(next); };
+  const updateRentals = (ids, patch) => { const next = rentals.map(r => ids.includes(r.id) ? { ...r, ...patch } : r); setRentals(next); syncOrdersFromRentals(next); };
+
+  // 접수 한 건의 할인 적용 가격 내역 (카톡 메시지와 동일한 구성)
+  const orderPrice = (o) => {
+    const rentSum = (o.items || []).reduce((s, it) => s + calcPrice(itemPrice(it), parseInt(it.days) || 0) * (parseInt(it.qty) || 0), 0);
+    const couponSaved = o.couponSaved || 0;
+    const rental = Math.max(0, rentSum - couponSaved);
+    const careFee = o.careFee || 0;
+    const vat = o.vat != null ? o.vat : Math.round((rental + careFee) * 0.10);
+    const total = o.total != null ? o.total : rental + careFee + vat;
+    return { rentSum, couponSaved, couponLabel: o.couponLabel || '', rental, careFee, vat, total };
+  };
 
   const saveEditOrder = () => {
     if (!oDraft) return;
@@ -281,9 +343,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
 
             <RentalCalendar
               rentals={rentals} equipment={equipment} sets={sets}
-              onAdd={(list) => setRentals(prev => [...prev, ...list])}
-              onRemove={(id) => setRentals(prev => prev.filter(x => x.id !== id))}
-              onUpdate={(ids, patch) => setRentals(prev => prev.map(r => ids.includes(r.id) ? { ...r, ...patch } : r))}/>
+              onAdd={addRentals} onRemove={removeRental} onUpdate={updateRentals}/>
           </div>
         </div>
       )}
@@ -433,7 +493,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
           <div>
             <div className="flex flex-wrap gap-2 justify-between items-center mb-4">
               <div className="flex gap-1.5">
-                {[['all','전체'],['pending','대기'],['accepted','수락'],['rejected','거절']].map(([k,label]) => (
+                {[['all','전체'],['pending','대기'],['accepted','수락'],['rejected','거절'],['modified','수정'],['completed','완료']].map(([k,label]) => (
                   <button key={k} onClick={() => setOrderFilter(k)}
                     className={`text-[12px] px-3 py-1.5 border ${orderFilter===k ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink'}`}>
                     {label}{k!=='all' && ` · ${orders.filter(o => (o.status||'pending')===k).length}`}
@@ -455,8 +515,13 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                 return (o.items||[]).some(it => (it.name||'').toLowerCase().includes(q));
               });
               if (list.length === 0) return <div className="border border-line py-16 text-center text-muted text-[14px]">해당하는 문의가 없습니다.</div>;
-              const stBadge = (st) => st==='accepted' ? 'bg-ink text-bg' : st==='rejected' ? 'bg-line text-muted line-through' : 'border border-ink text-ink';
-              const stLabel = (st) => st==='accepted' ? '수락됨' : st==='rejected' ? '거절됨' : '대기 중';
+              const stBadge = (st) => st==='accepted' ? 'bg-ink text-bg'
+                : st==='rejected' ? 'bg-line text-muted line-through'
+                : st==='completed' ? 'bg-green-600 text-white'
+                : st==='modified' ? 'border border-amber-500 text-amber-600'
+                : 'border border-ink text-ink';
+              const stLabel = (st) => st==='accepted' ? '수락됨' : st==='rejected' ? '거절됨'
+                : st==='completed' ? '완료됨' : st==='modified' ? '수정됨' : '대기 중';
               return (
                 <div className="space-y-3">
                   {list.map(o => {
@@ -467,6 +532,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-display text-lg font-bold">#{o.refNo || o.id}</span>
+                            {o.name && <span className="text-[15px] font-bold">· {o.name}</span>}
                             <span className={`text-[11px] font-mono px-2 py-0.5 ${stBadge(st)}`}>{stLabel(st)}</span>
                             <span className="text-[11px] font-mono px-2 py-0.5 border border-line text-muted">{o.type==='extra' ? '추가장비' : '대여'}</span>
                           </div>
@@ -552,12 +618,12 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                             )}
                             <div className="space-y-1.5 mb-2">
                               {(oDraft.items || []).map((it, i) => {
-                                const g = equipment.find(e => e.id === it.id);
+                                const info = pickInfo(it.id);
                                 return (
                                   <div key={i} className="flex items-center gap-1.5 border border-line bg-bg px-2 py-1.5">
                                     <span className="flex-1 min-w-0 text-[13px] truncate">
-                                      {it.name || (g ? g.name : it.id)}
-                                      {g && <span className="font-mono text-[11px] text-muted ml-1.5">{won(g.price)}/일</span>}
+                                      {it.name || info?.name || it.id}
+                                      <span className="font-mono text-[11px] text-muted ml-1.5">{won(itemPrice(it))}/일</span>
                                     </span>
                                     <label className="text-[11px] text-muted shrink-0">일수</label>
                                     <input type="number" min="1" max="90" value={it.days ?? ''}
@@ -577,8 +643,8 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                             <div className="flex gap-1.5">
                               <select value={addGearId} onChange={e => setAddGearId(e.target.value)}
                                 className="flex-1 min-w-0 text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-bg">
-                                <option value="">+ 장비 추가…</option>
-                                {equipment.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                <option value="">+ 장비·세트 추가…</option>
+                                {orderPick.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                               </select>
                               <button onClick={addDraftItem} disabled={!addGearId}
                                 className="text-[12px] border border-ink px-3 py-1.5 hover-lift disabled:opacity-40 disabled:cursor-not-allowed shrink-0">추가</button>
@@ -609,11 +675,37 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                           </div>
                         </div>
                       ) : (
-                        <div className="space-y-1 mb-3">
-                          {(o.items||[]).map((it,i) => {
-                            const g = equipment.find(e=>e.id===it.id);
-                            return <div key={i} className="text-[13px]">{it.name || (g?g.name:it.id)} <span className="font-mono text-[12px] text-muted">· {it.days}일 × {it.qty}대</span></div>;
-                          })}
+                        <div className="mb-3">
+                          {/* 장비 목록 + 항목별 금액 */}
+                          <div className="space-y-1">
+                            {(o.items||[]).map((it,i) => {
+                              const info = pickInfo(it.id);
+                              const amt = calcPrice(itemPrice(it), parseInt(it.days)||0) * (parseInt(it.qty)||0);
+                              return (
+                                <div key={i} className="flex items-baseline justify-between gap-2 text-[13px]">
+                                  <span>{it.name || info?.name || it.id} <span className="font-mono text-[12px] text-muted">· {it.days}일 × {it.qty}대</span></span>
+                                  <span className="font-mono text-[12px] text-muted shrink-0">{won(amt)}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {/* 할인 적용 가격 내역 (카톡 메시지와 동일) */}
+                          {(() => {
+                            const p = orderPrice(o);
+                            return (
+                              <div className="mt-2 pt-2 border-t border-line space-y-0.5 text-[12px] font-mono">
+                                {p.couponSaved > 0 && (
+                                  <div className="flex justify-between text-muted"><span>쿠폰{p.couponLabel ? ` (${p.couponLabel})` : ''}</span><span>- {won(p.couponSaved)}</span></div>
+                                )}
+                                <div className="flex justify-between"><span className="text-muted">렌탈료 합계</span><span>{won(p.rental)}</span></div>
+                                {p.careFee > 0 && (
+                                  <div className="flex justify-between text-muted"><span>안심케어 (+20%)</span><span>+ {won(p.careFee)}</span></div>
+                                )}
+                                <div className="flex justify-between text-muted"><span>부가세 (VAT 10%)</span><span>+ {won(p.vat)}</span></div>
+                                <div className="flex justify-between font-bold pt-0.5"><span>합계 (VAT 포함)</span><span>{won(p.total)}</span></div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
 
@@ -640,9 +732,13 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                             <button onClick={() => updateOrderStatus(o.id, 'accepted')}
                               className="text-[12px] bg-ink text-bg px-3 py-1.5 hover-lift">수락</button>
                           )}
-                          {st !== 'rejected' && (
+                          {st !== 'rejected' && st !== 'completed' && (
                             <button onClick={() => updateOrderStatus(o.id, 'rejected')}
                               className="text-[12px] border border-line hover:border-ink px-3 py-1.5">거절</button>
+                          )}
+                          {(st === 'accepted' || st === 'modified') && (
+                            <button onClick={() => updateOrderStatus(o.id, 'completed')}
+                              className="text-[12px] bg-green-600 text-white px-3 py-1.5 hover-lift">완료</button>
                           )}
                           {st !== 'pending' && (
                             <button onClick={() => updateOrderStatus(o.id, 'pending')}
@@ -1118,9 +1214,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
       {contractOrder && <ContractModal order={contractOrder} equipment={equipment} sets={sets} onClose={() => setContractOrder(null)}/>}
       {editing && <EquipForm form={editing} onSave={saveItem} onClose={() => setEditing(null)}/>}
       {viewing && <EquipDetailModal item={viewing} rentals={rentals} equipment={equipment} sets={sets}
-        onAdd={(list) => setRentals(prev => [...prev, ...list])}
-        onRemove={(id) => setRentals(prev => prev.filter(x => x.id !== id))}
-        onUpdate={(ids, patch) => setRentals(prev => prev.map(r => ids.includes(r.id) ? { ...r, ...patch } : r))}
+        onAdd={addRentals} onRemove={removeRental} onUpdate={updateRentals}
         onEdit={startEdit} onClose={() => setViewing(null)}/>}
     </section>
   );

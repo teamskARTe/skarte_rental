@@ -264,6 +264,7 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
                           startTime: g.startTime, endTime: g.endTime,
                           pickupBranch: g.pickupBranch || '', returnBranch: g.returnBranch || '',
                           memo: g.memo || '',
+                          fromOrder: g.items[0]?.fromOrder,   // 문의에서 온 예약이면 링크 유지 → 문의에도 반영
                         };
                         if (onAdd) onAdd([newItem]);
                         setSelected(s => ({ ...s, items: s.items.map(x => x.key === g.key ? { ...x, items: [...x.items, newItem] } : x) }));
