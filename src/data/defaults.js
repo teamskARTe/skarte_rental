@@ -177,6 +177,7 @@ export const BRANCHES = [
     lng: 126.6562488,
     pickup: true,
     return: true,
+    disabled: true,   // 잠시 비활성화 — 픽업/반납 선택 불가. 다시 열려면 이 줄을 지우세요.
   },
 ];
 

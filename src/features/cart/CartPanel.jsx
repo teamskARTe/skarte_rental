@@ -116,8 +116,9 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
   const [returnTimeTouched, setReturnTimeTouched] = useState(!!prefill?.returnTime);
   const changeStartTime = (v) => { setStartTime(v); if (!returnTimeTouched) setReturnTime(v); };
   const changeReturnTime = (v) => { setReturnTime(v); setReturnTimeTouched(true); };
-  const [pickupBranch, setPickupBranch] = useState(prefill?.pickupBranch || BRANCHES[0].id);
-  const [returnBranch, setReturnBranch] = useState(prefill?.returnBranch || BRANCHES[0].id);
+  const firstBranch = (BRANCHES.find(b => !b.disabled) || BRANCHES[0]).id;
+  const [pickupBranch, setPickupBranch] = useState(prefill?.pickupBranch || firstBranch);
+  const [returnBranch, setReturnBranch] = useState(prefill?.returnBranch || firstBranch);
 
   // 반납일 = 시작일 + 가장 긴 대여일수 (24시간 기준: 1일 = 다음 날 같은 시각 반납)
   // toISOString()은 UTC로 변환돼 KST 기준 하루가 밀리므로 로컬 기준으로 직접 포맷합니다.
@@ -459,9 +460,9 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                   </div>
                   <div className="flex gap-1.5 mt-2">
                     {BRANCHES.map(b => (
-                      <button key={b.id} onClick={() => setPickupBranch(b.id)}
-                        className={`flex-1 text-[13px] px-2 py-2 border transition-colors ${pickupBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
-                        {b.name}
+                      <button key={b.id} type="button" disabled={b.disabled} onClick={() => !b.disabled && setPickupBranch(b.id)}
+                        className={`flex-1 text-[13px] px-2 py-2 border transition-colors ${b.disabled ? 'opacity-40 cursor-not-allowed border-line bg-[#F5F5F5] text-muted' : pickupBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
+                        {b.name}{b.disabled ? ' (준비 중)' : ''}
                       </button>
                     ))}
                   </div>
@@ -480,9 +481,9 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                   </div>
                   <div className="flex gap-1.5 mt-2">
                     {BRANCHES.map(b => (
-                      <button key={b.id} onClick={() => setReturnBranch(b.id)}
-                        className={`flex-1 text-[13px] px-2 py-2 border transition-colors ${returnBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
-                        {b.name}
+                      <button key={b.id} type="button" disabled={b.disabled} onClick={() => !b.disabled && setReturnBranch(b.id)}
+                        className={`flex-1 text-[13px] px-2 py-2 border transition-colors ${b.disabled ? 'opacity-40 cursor-not-allowed border-line bg-[#F5F5F5] text-muted' : returnBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
+                        {b.name}{b.disabled ? ' (준비 중)' : ''}
                       </button>
                     ))}
                   </div>
