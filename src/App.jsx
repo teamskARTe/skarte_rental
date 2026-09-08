@@ -344,10 +344,14 @@ export function App() {
     return o;
   };
 
-  // 문의 수락/거절. 장바구니 문의 수락 시 예약 일정 자동 등록
+  // 문의 수락/거절. 장바구니 문의 수락 시 예약 일정 자동 등록,
+  // 거절·대기로 되돌리면 등록됐던 예약 일정도 캘린더에서 삭제
   const updateOrderStatus = (orderId, status) => {
     setOrders(prev => prev.map(o => {
       if (o.id !== orderId) return o;
+      if ((status === 'rejected' || status === 'pending') && o.type === 'cart' && o.refNo != null) {
+        setRentals(prevR => prevR.filter(r => r.fromOrder !== o.refNo));
+      }
       // 장바구니 문의 수락 → 예약 일정 등록 (중복 방지)
       if (status === 'accepted' && o.status !== 'accepted' && o.type === 'cart' && o.startDate && Array.isArray(o.items)) {
         // 반납일: 가장 긴 항목은 문의의 반납일 그대로, 짧은 항목은 24시간 기준(시작일+일수)

@@ -223,7 +223,8 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
                       <button
                         onClick={() => {
                           if (!confirm(`${g.renter}님의 예약 ${g.items.length}건을 모두 삭제할까요?`)) return;
-                          g.items.forEach(r => onRemove(r.id));
+                          // 한 번에 배열로 넘겨야 모든 건이 확실히 삭제됩니다 (하나씩 지우면 마지막 건만 반영됨)
+                          onRemove(g.items.map(r => r.id));
                           setSelected(s => ({ ...s, items: s.items.filter(x => x.key !== g.key) }));
                         }}
                         className="text-[11px] text-muted hover:text-ink border border-line hover:border-ink px-2 py-1 shrink-0">전체 삭제</button>

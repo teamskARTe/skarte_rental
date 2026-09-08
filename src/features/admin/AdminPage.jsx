@@ -138,7 +138,13 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   };
   // 캘린더 편집 핸들러 (rentals 갱신 + 연결된 문의 동기화)
   const addRentals    = (list)       => { const next = [...rentals, ...list]; setRentals(next); syncOrdersFromRentals(next); };
-  const removeRental  = (id)         => { const next = rentals.filter(x => x.id !== id); setRentals(next); syncOrdersFromRentals(next); };
+  // id 하나 또는 배열을 받습니다. 여러 건을 한 번에 지워야
+  // (전체 삭제) 이전 상태를 덮어쓰는 문제 없이 모두 삭제됩니다.
+  const removeRental  = (ids)        => {
+    const list = Array.isArray(ids) ? ids : [ids];
+    const next = rentals.filter(x => !list.includes(x.id));
+    setRentals(next); syncOrdersFromRentals(next);
+  };
   const updateRentals = (ids, patch) => { const next = rentals.map(r => ids.includes(r.id) ? { ...r, ...patch } : r); setRentals(next); syncOrdersFromRentals(next); };
 
   // 접수 한 건의 할인 적용 가격 내역 (카톡 메시지와 동일한 구성)
@@ -827,7 +833,12 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                             <button onClick={() => updateOrderStatus(o.id, 'pending')}
                               className="text-[12px] border border-line hover:border-ink px-3 py-1.5 text-muted">대기로</button>
                           )}
-                          <button onClick={() => { if (confirm(`문의 #${o.refNo||o.id}을(를) 삭제할까요?`)) setOrders(prev => prev.filter(x => x.id !== o.id)); }}
+                          <button onClick={() => {
+                              if (!confirm(`문의 #${o.refNo||o.id}을(를) 삭제할까요?${o.refNo != null ? '\n캘린더에 등록된 예약 일정도 함께 삭제됩니다.' : ''}`)) return;
+                              setOrders(prev => prev.filter(x => x.id !== o.id));
+                              // 이 문의와 연결된 캘린더 예약도 함께 삭제
+                              if (o.refNo != null) setRentals(prev => prev.filter(r => r.fromOrder !== o.refNo));
+                            }}
                             className="text-muted hover:text-ink p-1.5"><Ico.trash className="w-4 h-4"/></button>
                         </div>
                       </div>
