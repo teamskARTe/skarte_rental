@@ -31,12 +31,12 @@ export function RentalForm({ equipment, sets = [], defaultStart, defaultGearId, 
     return () => { document.removeEventListener('keydown', esc); document.body.style.overflow = ''; };
   }, []);
 
-  // 반납일 = 시작일 + (일수 - 1). toISOString은 UTC라 하루 밀리므로 로컬 기준으로 만듭니다.
+  // 반납일 = 시작일 + 일수 (24시간 기준: 1일 = 다음 날 반납). toISOString은 UTC라 하루 밀리므로 로컬 기준으로 만듭니다.
   const returnDate = (() => {
     const d = parseInt(days) || 0;
     if (!start || d < 1) return '';
     const dt = new Date(start + 'T00:00:00');
-    dt.setDate(dt.getDate() + d - 1);
+    dt.setDate(dt.getDate() + d);
     return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
   })();
 
@@ -63,6 +63,7 @@ export function RentalForm({ equipment, sets = [], defaultStart, defaultGearId, 
       renter: renter.trim(),
       start,
       days: d,
+      end: returnDate || '',   // 반납일 (24시간 기준) — 캘린더는 이 날짜까지 표시
       startTime,
       endTime,
       pickupBranch,

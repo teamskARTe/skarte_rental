@@ -24,14 +24,14 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
   };
   const short = (s) => s.length > 10 ? s.slice(0,9) + '…' : s;
 
-  // 예약자·대여기간(시작일+일수)이 같은 건들을 한 예약으로 묶어 한 줄로 표시합니다.
+  // 예약자·대여기간(시작일~반납일)이 같은 건들을 한 예약으로 묶어 한 줄로 표시합니다.
   const groups = useMemo(() => {
     const map = new Map();
     scoped.forEach(r => {
-      const key = `${r.renter || ''}|${r.start}|${r.days}`;
+      const key = `${r.renter || ''}|${r.start}|${r.days}|${r.end || ''}`;
       if (!map.has(key)) {
         map.set(key, {
-          key, renter: r.renter, start: r.start, days: r.days,
+          key, renter: r.renter, start: r.start, days: r.days, end: r.end || '',
           startTime: r.startTime, endTime: r.endTime,
           pickupBranch: r.pickupBranch || '', returnBranch: r.returnBranch || '',
           memo: r.memo || '', items: [],
@@ -42,6 +42,7 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
       // 시간·지점·메모는 먼저 들어온 값을 유지하되, 비어 있으면 채웁니다.
       if (!g.startTime && r.startTime) g.startTime = r.startTime;
       if (!g.endTime && r.endTime) g.endTime = r.endTime;
+      if (!g.end && r.end) g.end = r.end;
       if (!g.pickupBranch && r.pickupBranch) g.pickupBranch = r.pickupBranch;
       if (!g.returnBranch && r.returnBranch) g.returnBranch = r.returnBranch;
       if (!g.memo && r.memo) g.memo = r.memo;
@@ -60,7 +61,8 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
   const onDay = (day) => {
     const d = new Date(fmt(day));
     return groups.filter(g => {
-      const s = new Date(g.start); const e = new Date(s); e.setDate(e.getDate() + g.days - 1);
+      // 반납일까지 색칠 (반납일이 저장된 예약은 그 날짜, 옛 데이터는 일수 기준)
+      const s = new Date(g.start); const e = new Date(rentalEndStr(g));
       return d >= s && d <= e;
     });
   };
@@ -160,8 +162,8 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
                       className={`h-[19px] leading-[19px] text-[11px] text-ink/80 overflow-hidden whitespace-nowrap ${isS ? 'rounded-l-sm pl-1.5 border-l-2 border-ink' : 'pl-1'} ${isE ? 'rounded-r-sm mr-0.5' : ''}`}
                       style={{ background: colorOf(g.key) }}
                       title={hideIdentity
-                        ? `예약됨 ×${totalQty(g)} (${g.start}부터 ${g.days}일)`
-                        : `${g.renter} · ${g.items.map(x => `${gearName(x.gearId)} ×${x.qty}`).join(', ')} (${g.start}부터 ${g.days}일)${g.memo ? ` · ${g.memo}` : ''}`}>
+                        ? `예약됨 ×${totalQty(g)} (${g.start} ~ ${rentalEndStr(g)})`
+                        : `${g.renter} · ${g.items.map(x => `${gearName(x.gearId)} ×${x.qty}`).join(', ')} (${g.start} ~ ${rentalEndStr(g)})${g.memo ? ` · ${g.memo}` : ''}`}>
                       {showLabel ? (hideIdentity ? `예약 ×${totalQty(g)}` : `${isS ? g.renter + ' · ' : ''}${groupLabel(g)}`) : '\u00A0'}
                     </div>
                   );
@@ -260,7 +262,7 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
                         const newItem = {
                           id: `r${Date.now().toString().slice(-6)}${Math.floor(Math.random()*100)}`,
                           gearId: id, qty,
-                          renter: g.renter, start: g.start, days: g.days,
+                          renter: g.renter, start: g.start, days: g.days, end: g.end || '',
                           startTime: g.startTime, endTime: g.endTime,
                           pickupBranch: g.pickupBranch || '', returnBranch: g.returnBranch || '',
                           memo: g.memo || '',

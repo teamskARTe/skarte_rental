@@ -33,11 +33,12 @@ export function MyPage({ user, wishlist, orders, cart, onLogout, onItemClick, on
   const orderPrice = (o) => {
     const rentSum = (o.items||[]).reduce((s,it) => s + calcPrice(itemPrice(it), parseInt(it.days)||0) * (parseInt(it.qty)||0), 0);
     const couponSaved = o.couponSaved || 0;
-    const rental = Math.max(0, rentSum - couponSaved);
+    const extraSaved = o.extraSaved || 0; // 관리자 추가 할인
+    const rental = Math.max(0, rentSum - couponSaved - extraSaved);
     const careFee = o.careFee || 0;
     const vat = o.vat != null ? o.vat : Math.round((rental + careFee) * 0.10);
     const total = o.total != null ? o.total : rental + careFee + vat;
-    return { rental, couponSaved, couponLabel: o.couponLabel || '', careFee, vat, total };
+    return { rental, couponSaved, couponLabel: o.couponLabel || '', extraSaved, extraRate: parseInt(o.extraRate) || 0, careFee, vat, total };
   };
   const stText = (st) => st==='accepted' ? '수락됨' : st==='rejected' ? '거절됨' : st==='completed' ? '완료됨' : st==='modified' ? '수정됨' : '대기 중';
   const cartTotal = cartItems.reduce((s,i) => s + calcPrice(i.gear.price, i.days)*i.qty, 0);
@@ -114,6 +115,7 @@ export function MyPage({ user, wishlist, orders, cart, onLogout, onItemClick, on
                     {/* 할인 적용 가격 내역 */}
                     <div className="mt-2 pt-2 border-t border-line space-y-0.5 text-[12px] font-mono">
                       {p.couponSaved > 0 && <div className="flex justify-between text-muted"><span>쿠폰{p.couponLabel ? ` (${p.couponLabel})` : ''}</span><span>- {won(p.couponSaved)}</span></div>}
+                      {p.extraSaved > 0 && <div className="flex justify-between text-muted"><span>추가 할인{p.extraRate > 0 ? ` (-${p.extraRate}%)` : ''}</span><span>- {won(p.extraSaved)}</span></div>}
                       <div className="flex justify-between"><span className="text-muted">렌탈료 합계</span><span>{won(p.rental)}</span></div>
                       {p.careFee > 0 && <div className="flex justify-between text-muted"><span>안심케어 (+20%)</span><span>+ {won(p.careFee)}</span></div>}
                       <div className="flex justify-between text-muted"><span>부가세 (VAT 10%)</span><span>+ {won(p.vat)}</span></div>

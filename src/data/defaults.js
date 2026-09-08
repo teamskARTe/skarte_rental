@@ -216,7 +216,17 @@ export const hashId = (s) => { let h=0; for (let i=0;i<s.length;i++) h=(h*31+s.c
 
 export const colorOf = (id) => RENTAL_COLORS[hashId(String(id)) % RENTAL_COLORS.length];
 
+// 날짜 문자열(YYYY-MM-DD)에 n일을 더합니다. 로컬 기준이라 UTC 하루 밀림이 없습니다.
+export const addDaysStr = (iso, n) => {
+  const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+
+// 예약의 마지막 표시 날짜(반납일).
+// 반납일(end)이 저장된 예약(문의 연동·신규 등록)은 그 날짜 그대로,
+// 없는 옛 데이터는 기존 방식(시작일 + 일수 - 1)으로 계산합니다.
 export const rentalEndStr = (r) => {
+  if (r.end) return r.end;
   const e = new Date(r.start); e.setDate(e.getDate() + r.days - 1);
   return `${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,'0')}-${String(e.getDate()).padStart(2,'0')}`;
 };

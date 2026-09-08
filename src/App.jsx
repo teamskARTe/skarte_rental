@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Footer } from './components/Footer';
 import { Nav } from './components/Nav';
 import { EquipCtx, SiteCtx, CategoriesCtx } from './context';
-import { ADMIN_EMAIL, ROLE_USER, isAdminUser, roleOf, CATEGORIES, DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, seedRentals, DEFAULT_WORKS } from './data/defaults';
+import { ADMIN_EMAIL, ROLE_USER, isAdminUser, roleOf, CATEGORIES, DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, seedRentals, DEFAULT_WORKS, addDaysStr } from './data/defaults';
 import { AdminPage } from './features/admin/AdminPage';
 import { AuthModal } from './features/auth/AuthModal';
 import { MyPage } from './features/auth/MyPage';
@@ -179,6 +179,27 @@ export function App() {
       return valid.length === prev.length ? prev : valid;
     });
   }, [equipment]);
+  // 반납일(end)이 없는 기존 예약 보정: 문의와 연결된 건은 문의의 반납일을,
+  // 그 외에는 24시간 기준(시작일+일수)을 한 번만 채워 넣습니다.
+  useEffect(() => {
+    if (!loaded) return;
+    setRentals(prev => {
+      let changed = false;
+      const next = prev.map(r => {
+        if (r.end || !r.start) return r;
+        const o = r.fromOrder != null ? orders.find(x => x.refNo === r.fromOrder) : null;
+        const d = parseInt(r.days) || 1;
+        let end = addDaysStr(r.start, d);
+        if (o && o.returnDate) {
+          const maxDays = (o.items || []).reduce((m, it) => Math.max(m, parseInt(it.days) || 0), 0);
+          if (d === maxDays) end = o.returnDate;
+        }
+        changed = true;
+        return { ...r, end };
+      });
+      return changed ? next : prev;
+    });
+  }, [loaded]);
   useEffect(() => { store.write('skeart_cart', cart); }, [cart]);
   useEffect(() => { store.write('skeart_wishlist', wishlist); }, [wishlist]);
   useEffect(() => { if (loaded) saveCloud('skeart_orders', orders); }, [orders, loaded]);
@@ -202,11 +223,14 @@ export function App() {
   const cartCount = cart.filter(c => equipment.some(e => e.id === c.id) || (c.id && c.id.startsWith('set_'))).reduce((a, c) => a + c.qty, 0);
 
   // ── 장바구니 ──
-  const addToCart = (item) => {
+  // 상세 모달에서 고른 일수·수량을 그대로 담습니다 (없으면 1일 1대)
+  const addToCart = (item, opts = {}) => {
+    const days = Math.min(90, Math.max(1, parseInt(opts.days) || 1));
+    const qty = Math.max(1, parseInt(opts.qty) || 1);
     setCart(prev => {
       const exist = prev.find(c => c.id === item.id);
-      if (exist) return prev.map(c => c.id === item.id ? { ...c, qty: Math.min(item.stock, c.qty + 1) } : c);
-      return [...prev, { id: item.id, qty: 1, days: 1 }];
+      if (exist) return prev.map(c => c.id === item.id ? { ...c, qty: Math.min(item.stock, c.qty + qty), days } : c);
+      return [...prev, { id: item.id, qty: Math.min(item.stock, qty), days }];
     });
     showToast(`${item.name} · 장바구니에 담았습니다`);
   };
@@ -326,6 +350,12 @@ export function App() {
       if (o.id !== orderId) return o;
       // 장바구니 문의 수락 → 예약 일정 등록 (중복 방지)
       if (status === 'accepted' && o.status !== 'accepted' && o.type === 'cart' && o.startDate && Array.isArray(o.items)) {
+        // 반납일: 가장 긴 항목은 문의의 반납일 그대로, 짧은 항목은 24시간 기준(시작일+일수)
+        const maxDays = o.items.reduce((m, it) => Math.max(m, parseInt(it.days) || 0), 0);
+        const itemEnd = (it) => {
+          const d = parseInt(it.days) || 1;
+          return (d === maxDays && o.returnDate) ? o.returnDate : addDaysStr(o.startDate, d);
+        };
         const newRentals = o.items
           .filter(it => it.id && !String(it.id).startsWith('set_'))
           .map((it, idx) => ({
@@ -335,6 +365,7 @@ export function App() {
             renter: o.name || `문의 #${o.refNo}`,
             start: o.startDate,
             days: it.days || 1,
+            end: itemEnd(it),
             startTime: o.startTime || '',
             endTime: o.returnTime || '',
             pickupBranch: o.pickupBranch || '',

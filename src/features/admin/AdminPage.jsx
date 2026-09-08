@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Ico } from '../../components/Ico';
 import { ImageInput } from '../../components/ImageInput';
-import { DEFAULT_EQUIPMENT, isAdminUser, roleLabel, BRANCHES, branchName } from '../../data/defaults';
+import { DEFAULT_EQUIPMENT, isAdminUser, roleLabel, BRANCHES, branchName, addDaysStr } from '../../data/defaults';
 import { EquipDetailModal } from './EquipDetailModal';
 import { QuoteModal } from './QuoteModal';
 import { ContractModal } from './ContractModal';
@@ -35,7 +35,8 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
 
   const startEditOrder = (o) => {
     setEditOrderId(o.id);
-    setODraft({ ...o, items: (o.items || []).map(it => ({ ...it })) });
+    // couponId: 'keep' = 접수 당시 쿠폰 금액 그대로 / 'none' = 미적용 / 할인 id = 다시 계산
+    setODraft({ ...o, items: (o.items || []).map(it => ({ ...it })), couponId: 'keep' });
     setAddGearId('');
   };
   const cancelEditOrder = () => { setEditOrderId(null); setODraft(null); };
@@ -60,15 +61,37 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
     setAddGearId('');
   };
 
-  // 편집 중인 문의의 금액을 장비 목록 기준으로 다시 계산 (렌탈료 → 안심케어 → VAT)
+  // 관리자가 문의에 적용할 수 있는 쿠폰 목록 (활성 할인만)
+  const activeDiscounts = (discounts || []).filter(d => d.active !== false);
+
+  // 편집 중인 문의의 금액을 장비 목록 기준으로 다시 계산
+  // (렌탈료 → 쿠폰 → 추가 할인 → 안심케어 → VAT)
   const draftTotals = (() => {
     if (!oDraft) return null;
-    const rent = (oDraft.items || []).reduce((s, it) => {
+    const rentSum = (oDraft.items || []).reduce((s, it) => {
       return s + calcPrice(itemPrice(it), parseInt(it.days) || 0) * (parseInt(it.qty) || 0);
     }, 0);
-    const careFee = oDraft.care ? Math.round(rent * 0.20) : 0;
-    const vat = Math.round((rent + careFee) * 0.10);
-    return { rent, careFee, vat, total: rent + careFee + vat };
+    // 쿠폰: 기존 유지 / 미적용 / 선택한 할인으로 재계산
+    let couponSaved = 0, couponLabel = '';
+    if (oDraft.couponId == null || oDraft.couponId === 'keep') {
+      couponSaved = oDraft.couponSaved || 0;
+      couponLabel = oDraft.couponLabel || '';
+    } else if (oDraft.couponId !== 'none') {
+      const c = activeDiscounts.find(d => d.id === oDraft.couponId);
+      if (c) {
+        couponSaved = c.type === 'percent' ? Math.round(rentSum * c.value / 100) : (c.value || 0);
+        couponLabel = c.label;
+      }
+    }
+    couponSaved = Math.min(couponSaved, rentSum);
+    const afterCoupon = Math.max(0, rentSum - couponSaved);
+    // 추가 할인: 쿠폰까지 적용된 할인가에서 관리자 재량으로 −% (10/20/30 등)
+    const extraRate = Math.min(100, Math.max(0, parseInt(oDraft.extraRate) || 0));
+    const extraSaved = Math.round(afterCoupon * extraRate / 100);
+    const rental = afterCoupon - extraSaved;
+    const careFee = oDraft.care ? Math.round(rental * 0.20) : 0;
+    const vat = Math.round((rental + careFee) * 0.10);
+    return { rentSum, couponSaved, couponLabel, extraRate, extraSaved, rental, careFee, vat, total: rental + careFee + vat };
   })();
 
   // ── 캘린더 → 문의 연동 ──
@@ -93,22 +116,24 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
       });
       const items = [...gearItems, ...setItems];
       const f = rs[0];
-      const maxDays = rs.reduce((m, r) => Math.max(m, parseInt(r.days) || 0), 0);
+      // 문의 반납일 = 예약들의 반납일 중 가장 늦은 날 (반납일이 없는 옛 예약은 24시간 기준으로 계산)
       let returnDate = o.returnDate;
-      if (f.start && maxDays >= 1) {
-        const d = new Date(f.start + 'T00:00:00'); d.setDate(d.getDate() + maxDays);
-        returnDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      }
+      const ends = rs.filter(r => r.start).map(r => r.end || addDaysStr(r.start, parseInt(r.days) || 1));
+      if (ends.length) returnDate = ends.reduce((m, e) => (e > m ? e : m));
       const rentSum = items.reduce((s, it) => s + calcPrice(itemPrice(it), parseInt(it.days) || 0) * (parseInt(it.qty) || 0), 0);
-      const couponSaved = o.couponSaved || 0;
-      const rental = Math.max(0, rentSum - couponSaved);
+      const couponSaved = Math.min(o.couponSaved || 0, rentSum);
+      const afterCoupon = Math.max(0, rentSum - couponSaved);
+      // 추가 할인은 %가 저장돼 있으면 새 금액 기준으로 다시 계산합니다.
+      const extraRate = parseInt(o.extraRate) || 0;
+      const extraSaved = extraRate > 0 ? Math.round(afterCoupon * extraRate / 100) : Math.min(o.extraSaved || 0, afterCoupon);
+      const rental = afterCoupon - extraSaved;
       const careFee = o.care ? Math.round(rental * 0.20) : 0;
       const vat = Math.round((rental + careFee) * 0.10);
       return { ...o, items,
         startDate: f.start || o.startDate, startTime: f.startTime || o.startTime,
         returnDate, returnTime: f.endTime || o.returnTime,
         pickupBranch: f.pickupBranch || o.pickupBranch, returnBranch: f.returnBranch || o.returnBranch,
-        careFee, vat, total: rental + careFee + vat };
+        extraSaved, careFee, vat, total: rental + careFee + vat };
     }));
   };
   // 캘린더 편집 핸들러 (rentals 갱신 + 연결된 문의 동기화)
@@ -120,18 +145,23 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const orderPrice = (o) => {
     const rentSum = (o.items || []).reduce((s, it) => s + calcPrice(itemPrice(it), parseInt(it.days) || 0) * (parseInt(it.qty) || 0), 0);
     const couponSaved = o.couponSaved || 0;
-    const rental = Math.max(0, rentSum - couponSaved);
+    const extraSaved = o.extraSaved || 0;
+    const rental = Math.max(0, rentSum - couponSaved - extraSaved);
     const careFee = o.careFee || 0;
     const vat = o.vat != null ? o.vat : Math.round((rental + careFee) * 0.10);
     const total = o.total != null ? o.total : rental + careFee + vat;
-    return { rentSum, couponSaved, couponLabel: o.couponLabel || '', rental, careFee, vat, total };
+    return { rentSum, couponSaved, couponLabel: o.couponLabel || '', extraSaved, extraRate: parseInt(o.extraRate) || 0, rental, careFee, vat, total };
   };
 
   const saveEditOrder = () => {
     if (!oDraft) return;
+    const { couponId, ...rest } = oDraft; // couponId는 편집용 임시 필드라 저장하지 않음
     const next = draftTotals
-      ? { ...oDraft, careFee: draftTotals.careFee, vat: draftTotals.vat, total: draftTotals.total }
-      : oDraft;
+      ? { ...rest,
+          couponSaved: draftTotals.couponSaved, couponLabel: draftTotals.couponLabel,
+          extraRate: draftTotals.extraRate, extraSaved: draftTotals.extraSaved,
+          careFee: draftTotals.careFee, vat: draftTotals.vat, total: draftTotals.total }
+      : rest;
     setOrders(prev => prev.map(o => o.id === next.id ? next : o));
 
     // 이미 수락된 문의라면 예약 일정(캘린더)도 새 장비 목록·날짜로 다시 만듭니다.
@@ -139,6 +169,8 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
       setRentals(prev => {
         const others = prev.filter(r => r.fromOrder !== next.refNo);
         if (!next.startDate) return others;
+        // 반납일: 가장 긴 항목은 문의의 반납일 그대로, 짧은 항목은 24시간 기준(시작일+일수)
+        const maxDays = (next.items || []).reduce((m, it) => Math.max(m, parseInt(it.days) || 0), 0);
         const rebuilt = (next.items || [])
           .filter(it => it.id && !String(it.id).startsWith('set_'))
           .map((it, idx) => ({
@@ -148,6 +180,8 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
             renter: next.name || `문의 #${next.refNo}`,
             start: next.startDate,
             days: parseInt(it.days) || 1,
+            end: ((parseInt(it.days) || 1) === maxDays && next.returnDate)
+              ? next.returnDate : addDaysStr(next.startDate, parseInt(it.days) || 1),
             startTime: next.startTime || '',
             endTime: next.returnTime || '',
             pickupBranch: next.pickupBranch || '',
@@ -651,6 +685,46 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                             </div>
                           </div>
 
+                          {/* 쿠폰 + 추가 할인 (관리자 재량) */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-line">
+                            <div>
+                              <div className="text-[12px] font-bold text-ink mb-1.5">쿠폰 할인</div>
+                              <select value={oDraft.couponId ?? 'keep'} onChange={e => patchDraft({ couponId: e.target.value })}
+                                className="w-full text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-bg">
+                                <option value="keep">
+                                  기존 유지{(oDraft.couponSaved || 0) > 0 ? ` — ${oDraft.couponLabel || '쿠폰'} (-${won(oDraft.couponSaved)})` : ' (쿠폰 없음)'}
+                                </option>
+                                <option value="none">할인 미적용</option>
+                                {activeDiscounts.map(d => (
+                                  <option key={d.id} value={d.id}>
+                                    {d.label} ({d.type === 'percent' ? `-${d.value}%` : `-${won(d.value)}`})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <div className="text-[12px] font-bold text-ink mb-1.5">추가 할인 <span className="font-normal text-muted">(할인가에서 −%)</span></div>
+                              <div className="flex items-center gap-1">
+                                {[0, 10, 20, 30].map(r => (
+                                  <button key={r} onClick={() => patchDraft({ extraRate: r })}
+                                    className={`h-8 px-2.5 text-[12px] font-mono border ${(parseInt(oDraft.extraRate) || 0) === r ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
+                                    {r === 0 ? '없음' : `-${r}%`}
+                                  </button>
+                                ))}
+                                <input type="number" min="0" max="100" value={oDraft.extraRate ?? ''}
+                                  onChange={e => {
+                                    const v = e.target.value;
+                                    if (v === '') { patchDraft({ extraRate: '' }); return; }
+                                    const n = parseInt(v);
+                                    patchDraft({ extraRate: isNaN(n) ? '' : Math.min(100, Math.max(0, n)) });
+                                  }}
+                                  placeholder="직접"
+                                  className="w-14 h-8 text-[13px] font-mono text-center border border-line focus:border-ink outline-none px-1 bg-bg"/>
+                                <span className="text-[12px] text-muted">%</span>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* 안심케어 + 금액 재계산 */}
                           <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-line">
                             <button onClick={() => patchDraft({ care: !oDraft.care })} className="flex items-center gap-2">
@@ -661,7 +735,9 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                             </button>
                             {draftTotals && (
                               <div className="font-mono text-[12px] text-muted">
-                                렌탈료 {won(draftTotals.rent)}
+                                렌탈료 {won(draftTotals.rentSum)}
+                                {draftTotals.couponSaved > 0 && ` − 쿠폰 ${won(draftTotals.couponSaved)}`}
+                                {draftTotals.extraSaved > 0 && ` − 추가 ${won(draftTotals.extraSaved)}`}
                                 {draftTotals.careFee > 0 && ` + 케어 ${won(draftTotals.careFee)}`}
                                 {` + VAT ${won(draftTotals.vat)}`}
                                 <span className="text-ink font-bold ml-1.5">= {won(draftTotals.total)}</span>
@@ -696,6 +772,9 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                               <div className="mt-2 pt-2 border-t border-line space-y-0.5 text-[12px] font-mono">
                                 {p.couponSaved > 0 && (
                                   <div className="flex justify-between text-muted"><span>쿠폰{p.couponLabel ? ` (${p.couponLabel})` : ''}</span><span>- {won(p.couponSaved)}</span></div>
+                                )}
+                                {p.extraSaved > 0 && (
+                                  <div className="flex justify-between text-muted"><span>추가 할인{p.extraRate > 0 ? ` (-${p.extraRate}%)` : ''}</span><span>- {won(p.extraSaved)}</span></div>
                                 )}
                                 <div className="flex justify-between"><span className="text-muted">렌탈료 합계</span><span>{won(p.rental)}</span></div>
                                 {p.careFee > 0 && (

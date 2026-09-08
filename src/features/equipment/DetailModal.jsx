@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useContext } from 'react';
 import { CategoriesCtx } from '../../context';
+import { rentalEndStr } from '../../data/defaults';
 import { Ico } from '../../components/Ico';
 import { RentalCalendar } from '../rentals/RentalCalendar';
 import { priceLabel, won } from '../../lib/format';
@@ -8,6 +9,16 @@ export function DetailModal({ item, onClose, onAdd, wishlist, onToggleWish, rent
   const todayStr = new Date().toISOString().slice(0,10);
   const [chkStart, setChkStart] = useState(todayStr);
   const [chkDays, setChkDays] = useState(1);
+  // 장바구니에 담을 대여 일수·수량 (일수는 지우고 다시 입력할 수 있게 빈 값 허용)
+  const [addDays, setAddDays] = useState(1);
+  const [addQty, setAddQty] = useState(1);
+  // 숫자 입력 공통 처리: 빈 칸을 허용해서 1을 지우고 2를 바로 입력할 수 있게 합니다.
+  const numInput = (setter) => (e) => {
+    const v = e.target.value;
+    if (v === '') { setter(''); return; }
+    const n = parseInt(v);
+    setter(isNaN(n) ? '' : Math.min(90, Math.max(1, n)));
+  };
   useEffect(() => {
     const esc = (e) => e.key === 'Escape' && onClose();
     document.addEventListener('keydown', esc);
@@ -24,7 +35,8 @@ export function DetailModal({ item, onClose, onAdd, wishlist, onToggleWish, rent
     for (let d = 0; d < Math.max(1, chkDays); d++) {
       const day = new Date(start); day.setDate(day.getDate() + d);
       const booked = mine.reduce((sum, r) => {
-        const s = new Date(r.start); const e = new Date(s); e.setDate(e.getDate() + r.days - 1);
+        // 반납일까지 예약 중으로 집계 (반납일이 저장된 예약은 그 날짜, 옛 데이터는 일수 기준)
+        const s = new Date(r.start); const e = new Date(rentalEndStr(r));
         return (day >= s && day <= e) ? sum + r.qty : sum;
       }, 0);
       peak = Math.max(peak, booked);
@@ -99,11 +111,49 @@ export function DetailModal({ item, onClose, onAdd, wishlist, onToggleWish, rent
                   * 모든 가격은 VAT 미포함이며, 문의 시 부가세 10%가 별도 부과됩니다.
                 </div>
               </div>
-              <button onClick={() => { onAdd(item); onClose(); }}
+              {/* 담을 조건 선택: 대여 일수 + 수량 */}
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <div className="text-[12px] font-bold text-ink mb-2">대여 일수</div>
+                  <div className="flex items-center gap-1">
+                    {[1, 3, 7].map(d => (
+                      <button key={d} onClick={() => setAddDays(d)}
+                        className={`relative w-9 h-9 text-[13px] font-mono border ${addDays === d ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink'}`}>
+                        {d}
+                        {(d === 3 || d === 7) && (
+                          <span className="absolute -top-2 -right-1.5 text-[8px] font-mono bg-kakao text-ink px-1 leading-tight rounded-sm">-{d===7?20:10}%</span>
+                        )}
+                      </button>
+                    ))}
+                    <input type="number" min="1" max="90" value={addDays}
+                      onChange={numInput(setAddDays)} placeholder="직접"
+                      className="w-14 h-9 text-[13px] font-mono border border-line text-center bg-transparent outline-none focus:border-ink"/>
+                    <span className="text-[12px] text-muted ml-0.5">일</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[12px] font-bold text-ink mb-2">수량</div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setAddQty(q => Math.max(1, q - 1))}
+                      className="w-9 h-9 border border-line hover:border-ink flex items-center justify-center">
+                      <Ico.minus className="w-3 h-3"/>
+                    </button>
+                    <span className="font-mono text-[13px] w-8 text-center">{addQty}</span>
+                    <button onClick={() => setAddQty(q => Math.min(item.stock, q + 1))}
+                      className="w-9 h-9 border border-line hover:border-ink flex items-center justify-center disabled:opacity-30"
+                      disabled={addQty >= item.stock}>
+                      <Ico.plus className="w-3 h-3"/>
+                    </button>
+                    <span className="font-mono text-[11px] text-muted ml-1">/ {item.stock}대</span>
+                  </div>
+                </div>
+              </div>
+
+              <button onClick={() => { onAdd(item, { days: addDays, qty: addQty }); onClose(); }}
                 className="mt-4 w-full bg-ink text-bg py-4 inline-flex items-center justify-center gap-2 hover-lift">
                 <Ico.bag className="w-4 h-4"/> 장바구니에 담기
               </button>
-              <p className="text-[12px] text-muted mt-3 text-center">장바구니에서 일정·수량을 조정 후 카카오톡으로 일괄 문의됩니다.</p>
+              <p className="text-[12px] text-muted mt-3 text-center">장바구니에서도 일정·수량을 다시 조정할 수 있어요.</p>
             </div>
           </div>
 
@@ -130,7 +180,7 @@ export function DetailModal({ item, onClose, onAdd, wishlist, onToggleWish, rent
                         className={`w-10 h-10 text-[13px] font-mono border ${chkDays===d ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink'}`}>{d}</button>
                     ))}
                     <input type="number" min="1" max="90" value={chkDays}
-                      onChange={e => setChkDays(Math.max(1, parseInt(e.target.value)||1))}
+                      onChange={numInput(setChkDays)} placeholder="직접"
                       className="w-14 h-10 text-[13px] font-mono border border-line text-center bg-transparent outline-none focus:border-ink"/>
                   </div>
                 </div>

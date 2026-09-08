@@ -39,14 +39,21 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
 
   const rentSum = rows.reduce((s, r) => s + r.amount, 0);
   const couponSaved = order.couponSaved || 0;
-  const rentalTotal = Math.max(0, rentSum - couponSaved);
+  const extraSaved = order.extraSaved || 0; // 관리자 추가 할인
+  const extraRate = parseInt(order.extraRate) || 0;
+  const rentalTotal = Math.max(0, rentSum - couponSaved - extraSaved);
   const careFee = order.careFee || 0;
   const vat = order.vat != null ? order.vat : Math.round((rentalTotal + careFee) * 0.1);
   const total = order.total != null ? order.total : rentalTotal + careFee + vat;
 
   const print = () => {
+    // PDF 저장 시 파일명이 "(날짜) 000님 계약서"가 되도록 문서 제목을 잠시 바꿉니다.
+    const now = new Date();
+    const ds = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
+    const prevTitle = document.title;
+    document.title = `(${ds}) ${order.name ? `${order.name}님 ` : ''}계약서 #${order.refNo || order.id}`;
     document.body.classList.add('printing');
-    const done = () => { document.body.classList.remove('printing'); window.removeEventListener('afterprint', done); };
+    const done = () => { document.body.classList.remove('printing'); document.title = prevTitle; window.removeEventListener('afterprint', done); };
     window.addEventListener('afterprint', done);
     setTimeout(() => window.print(), 30);
     setTimeout(done, 1500);
@@ -190,6 +197,13 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
                   <td className="border border-line px-3 py-2" colSpan={3}>쿠폰 <span className="text-muted">{order.couponLabel || '적용'}</span></td>
                   <td className="border border-line px-3 py-2"></td>
                   <td className="border border-line px-3 py-2 text-right font-mono">- {won(couponSaved)}</td>
+                </tr>
+              )}
+              {extraSaved > 0 && (
+                <tr>
+                  <td className="border border-line px-3 py-2" colSpan={3}>추가 할인{extraRate > 0 && <span className="text-muted"> (-{extraRate}%)</span>}</td>
+                  <td className="border border-line px-3 py-2"></td>
+                  <td className="border border-line px-3 py-2 text-right font-mono">- {won(extraSaved)}</td>
                 </tr>
               )}
               <tr>

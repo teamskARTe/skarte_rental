@@ -52,6 +52,15 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
   const discRate = (days) => { const d = parseInt(days)||0; return d >= 7 ? 0.2 : d >= 3 ? 0.1 : 0; };
 
   const selItems = items.filter(i => isSel(i.id));
+
+  // ── 총 회차: 모든 장비의 대여 일수를 한 번에 변경 ──
+  const [bulkDays, setBulkDays] = useState('');
+  const applyBulkDays = (d) => {
+    setBulkDays(d);
+    items.forEach(i => onUpdate(i.id, { days: d }));
+  };
+  // 모든 항목의 일수가 d로 같을 때만 빠른 선택 버튼을 활성 표시
+  const allDaysEqual = (d) => items.length > 0 && items.every(i => parseInt(i.days) === d);
   // 선택 항목 중 대여 일수가 설정 안 된 게 있는지
   const hasUnsetDays = selItems.some(i => !i.days || parseInt(i.days) < 1);
   // 선택 항목 기준: 정가 합계, 기간 할인 합계, 소계
@@ -446,6 +455,34 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                 {saved === 0 && (
                   <p className="text-[12px] text-muted mt-2">3일 이상 대여하거나 쿠폰을 적용하면 할인돼요.</p>
                 )}
+
+                {/* 총 회차 — 모든 장비의 대여 일수를 한 번에 변경 */}
+                <div className="mt-5 pt-4 border-t border-line">
+                  <label className="text-[13px] font-bold text-ink block mb-2">총 회차 <span className="text-[12px] font-normal text-muted">(대여 일수)</span></label>
+                  <div className="flex items-center gap-1">
+                    {[1, 3, 7].map(d => (
+                      <button key={d} type="button" onClick={() => applyBulkDays(d)}
+                        className={`relative w-9 h-9 text-[13px] font-mono border ${allDaysEqual(d) ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
+                        {d}
+                        {(d === 3 || d === 7) && (
+                          <span className="absolute -top-2 -right-1.5 text-[8px] font-mono bg-kakao text-ink px-1 leading-tight rounded-sm">-{d===7?20:10}%</span>
+                        )}
+                      </button>
+                    ))}
+                    <input type="number" min="1" max="90" value={bulkDays}
+                      onChange={e => {
+                        const v = e.target.value;
+                        if (v === '') { setBulkDays(''); return; }
+                        const n = parseInt(v);
+                        if (isNaN(n)) { setBulkDays(''); return; }
+                        applyBulkDays(Math.min(90, Math.max(1, n)));
+                      }}
+                      placeholder="직접"
+                      className="w-14 h-9 text-[13px] font-mono border border-line text-center bg-bg outline-none focus:border-ink"/>
+                    <span className="text-[12px] text-muted ml-0.5">일</span>
+                  </div>
+                  <p className="text-[11px] text-muted mt-1.5">모든 장비 회차가 변경됩니다.</p>
+                </div>
 
                 {/* 렌탈 — 날짜·시간·장소 */}
                 <div className="mt-5 pt-4 border-t border-line">

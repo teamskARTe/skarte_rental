@@ -3,6 +3,7 @@ import { CategoriesCtx } from '../../context';
 import { Ico } from '../../components/Ico';
 import { RentalCalendar } from '../rentals/RentalCalendar';
 import { won } from '../../lib/format';
+import { rentalEndStr } from '../../data/defaults';
 
 export function EquipDetailModal({ item, rentals, equipment, sets = [], onAdd, onRemove, onUpdate, onClose, onEdit }) {
   const [view, setView] = useState('info'); // info | calendar
@@ -18,14 +19,14 @@ export function EquipDetailModal({ item, rentals, equipment, sets = [], onAdd, o
   const itemRentals = rentals.filter(r => r.gearId === item.id);
   const todayStr = new Date().toISOString().slice(0,10);
   const today = new Date(todayStr);
-  // 오늘 대여중 수량
+  // 오늘 대여중 수량 (반납일까지 대여중으로 집계)
   const activeQty = itemRentals.reduce((sum, r) => {
-    const s = new Date(r.start); const e = new Date(s); e.setDate(e.getDate()+r.days-1);
+    const s = new Date(r.start); const e = new Date(rentalEndStr(r));
     return (today >= s && today <= e) ? sum + r.qty : sum;
   }, 0);
   // 다가오는 일정
   const upcoming = itemRentals
-    .filter(r => { const e = new Date(r.start); e.setDate(e.getDate()+r.days-1); return e >= today; })
+    .filter(r => new Date(rentalEndStr(r)) >= today)
     .sort((a,b) => a.start.localeCompare(b.start));
 
   return (
@@ -101,7 +102,7 @@ export function EquipDetailModal({ item, rentals, equipment, sets = [], onAdd, o
                       {upcoming.slice(0,4).map(r => (
                         <div key={r.id} className="flex items-baseline justify-between text-[13px] border-b border-line pb-2">
                           <span>{r.renter} <span className="font-mono text-[12px] text-muted">×{r.qty}</span></span>
-                          <span className="font-mono text-[12px] text-muted">{r.start} · {r.days}일</span>
+                          <span className="font-mono text-[12px] text-muted">{r.start} ~ {rentalEndStr(r)}</span>
                         </div>
                       ))}
                       {upcoming.length > 4 && <div className="text-[12px] text-muted">외 {upcoming.length-4}건 — 캘린더에서 확인</div>}
