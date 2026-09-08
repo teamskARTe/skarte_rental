@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Footer } from './components/Footer';
 import { Nav } from './components/Nav';
 import { EquipCtx, SiteCtx, CategoriesCtx } from './context';
-import { ADMIN_EMAIL, ROLE_USER, isAdminUser, roleOf, CATEGORIES, DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, seedRentals, DEFAULT_WORKS, addDaysStr } from './data/defaults';
+import { ADMIN_EMAIL, ROLE_USER, isAdminUser, roleOf, CATEGORIES, DEFAULT_BRANDS, DEFAULT_DISCOUNTS, DEFAULT_EQUIPMENT, DEFAULT_EVENT_BANNERS, DEFAULT_HOME_BANNER, DEFAULT_NOTICES, DEFAULT_SETS, seedRentals, DEFAULT_WORKS, addDaysStr, rentalLinkedTo } from './data/defaults';
 import { AdminPage } from './features/admin/AdminPage';
 import { AuthModal } from './features/auth/AuthModal';
 import { MyPage } from './features/auth/MyPage';
@@ -179,23 +179,33 @@ export function App() {
       return valid.length === prev.length ? prev : valid;
     });
   }, [equipment]);
-  // 반납일(end)이 없는 기존 예약 보정: 문의와 연결된 건은 문의의 반납일을,
-  // 그 외에는 24시간 기준(시작일+일수)을 한 번만 채워 넣습니다.
+  // 기존 예약 데이터 보정 (앱 로드 시 한 번):
+  //  1) 문의 고유 id 링크(fromOrderId) 백필 — 접수번호로 유일하게 매칭되는 문의가 있을 때만
+  //     (접수번호가 중복이면 어느 문의인지 알 수 없어 그대로 둡니다)
+  //  2) 반납일(end)이 없으면 문의의 반납일 또는 24시간 기준(시작일+일수)으로 채움
   useEffect(() => {
     if (!loaded) return;
     setRentals(prev => {
       let changed = false;
       const next = prev.map(r => {
-        if (r.end || !r.start) return r;
-        const o = r.fromOrder != null ? orders.find(x => x.refNo === r.fromOrder) : null;
-        const d = parseInt(r.days) || 1;
-        let end = addDaysStr(r.start, d);
-        if (o && o.returnDate) {
-          const maxDays = (o.items || []).reduce((m, it) => Math.max(m, parseInt(it.days) || 0), 0);
-          if (d === maxDays) end = o.returnDate;
+        let p = r;
+        if (p.fromOrderId == null && p.fromOrder != null) {
+          const matches = orders.filter(x => x.refNo === p.fromOrder);
+          if (matches.length === 1) { p = { ...p, fromOrderId: matches[0].id }; changed = true; }
         }
-        changed = true;
-        return { ...r, end };
+        if (!p.end && p.start) {
+          const o = p.fromOrderId != null ? orders.find(x => x.id === p.fromOrderId)
+            : p.fromOrder != null ? orders.find(x => x.refNo === p.fromOrder) : null;
+          const d = parseInt(p.days) || 1;
+          let end = addDaysStr(p.start, d);
+          if (o && o.returnDate) {
+            const maxDays = (o.items || []).reduce((m, it) => Math.max(m, parseInt(it.days) || 0), 0);
+            if (d === maxDays) end = o.returnDate;
+          }
+          p = { ...p, end };
+          changed = true;
+        }
+        return p;
       });
       return changed ? next : prev;
     });
@@ -316,7 +326,7 @@ export function App() {
       if (idx >= 0) {
         const updated = { ...orders[idx], ...fields, status: 'modified', date: new Date().toISOString().slice(0,10) };
         setOrders(prev => prev.map((o, i) => i === idx ? updated : o));
-        setRentals(prev => prev.filter(r => r.fromOrder !== rno));
+        setRentals(prev => prev.filter(r => !rentalLinkedTo(r, updated)));
         return updated;   // 같은 접수번호 유지
       }
     }
@@ -349,8 +359,8 @@ export function App() {
   const updateOrderStatus = (orderId, status) => {
     setOrders(prev => prev.map(o => {
       if (o.id !== orderId) return o;
-      if ((status === 'rejected' || status === 'pending') && o.type === 'cart' && o.refNo != null) {
-        setRentals(prevR => prevR.filter(r => r.fromOrder !== o.refNo));
+      if ((status === 'rejected' || status === 'pending') && o.type === 'cart') {
+        setRentals(prevR => prevR.filter(r => !rentalLinkedTo(r, o)));
       }
       // 장바구니 문의 수락 → 예약 일정 등록 (중복 방지)
       if (status === 'accepted' && o.status !== 'accepted' && o.type === 'cart' && o.startDate && Array.isArray(o.items)) {
@@ -363,7 +373,8 @@ export function App() {
         const newRentals = o.items
           .filter(it => it.id && !String(it.id).startsWith('set_'))
           .map((it, idx) => ({
-            id: `ord${o.refNo}_${idx}`,
+            // id에 문의 고유 id를 사용 — 접수번호가 중복돼도 예약이 서로 덮이지 않습니다.
+            id: `ord${o.id}_${idx}`,
             gearId: it.id,
             qty: it.qty || 1,
             renter: o.name || `문의 #${o.refNo}`,
@@ -375,6 +386,7 @@ export function App() {
             pickupBranch: o.pickupBranch || '',
             returnBranch: o.returnBranch || '',
             fromOrder: o.refNo,
+            fromOrderId: o.id,
           }));
         if (newRentals.length) {
           setRentals(prevR => {

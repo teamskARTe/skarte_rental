@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Ico } from '../../components/Ico';
 import { ImageInput } from '../../components/ImageInput';
-import { DEFAULT_EQUIPMENT, isAdminUser, roleLabel, BRANCHES, branchName, addDaysStr } from '../../data/defaults';
+import { DEFAULT_EQUIPMENT, isAdminUser, roleLabel, BRANCHES, branchName, addDaysStr, rentalLinkedTo } from '../../data/defaults';
 import { EquipDetailModal } from './EquipDetailModal';
 import { QuoteModal } from './QuoteModal';
 import { ContractModal } from './ContractModal';
@@ -100,7 +100,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const syncOrdersFromRentals = (rentalsArr) => {
     setOrders(prev => prev.map(o => {
       if (o.type !== 'cart' || o.refNo == null) return o;
-      const rs = rentalsArr.filter(r => r.fromOrder === o.refNo);
+      const rs = rentalsArr.filter(r => rentalLinkedTo(r, o));
       if (rs.length === 0) return o; // 연결된 캘린더 예약이 없으면 건드리지 않음
       const setItems = (o.items || []).filter(it => String(it.id).startsWith('set_')); // 세트 보존
       const gearItems = rs.map(r => {
@@ -175,14 +175,14 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
     // 이미 수락된 문의라면 예약 일정(캘린더)도 새 장비 목록·날짜로 다시 만듭니다.
     if ((next.status || 'pending') === 'accepted' && next.type === 'cart') {
       setRentals(prev => {
-        const others = prev.filter(r => r.fromOrder !== next.refNo);
+        const others = prev.filter(r => !rentalLinkedTo(r, next));
         if (!next.startDate) return others;
         // 반납일: 가장 긴 항목은 문의의 반납일 그대로, 짧은 항목은 24시간 기준(시작일+일수)
         const maxDays = (next.items || []).reduce((m, it) => Math.max(m, parseInt(it.days) || 0), 0);
         const rebuilt = (next.items || [])
           .filter(it => it.id && !String(it.id).startsWith('set_'))
           .map((it, idx) => ({
-            id: `ord${next.refNo}_${idx}`,
+            id: `ord${next.id}_${idx}`,
             gearId: it.id,
             qty: parseInt(it.qty) || 1,
             renter: next.name || `문의 #${next.refNo}`,
@@ -195,6 +195,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
             pickupBranch: next.pickupBranch || '',
             returnBranch: next.returnBranch || '',
             fromOrder: next.refNo,
+            fromOrderId: next.id,
           }));
         return [...others, ...rebuilt];
       });
@@ -834,10 +835,10 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                               className="text-[12px] border border-line hover:border-ink px-3 py-1.5 text-muted">대기로</button>
                           )}
                           <button onClick={() => {
-                              if (!confirm(`문의 #${o.refNo||o.id}을(를) 삭제할까요?${o.refNo != null ? '\n캘린더에 등록된 예약 일정도 함께 삭제됩니다.' : ''}`)) return;
+                              if (!confirm(`문의 #${o.refNo||o.id}을(를) 삭제할까요?\n캘린더에 등록된 예약 일정도 함께 삭제됩니다.`)) return;
                               setOrders(prev => prev.filter(x => x.id !== o.id));
                               // 이 문의와 연결된 캘린더 예약도 함께 삭제
-                              if (o.refNo != null) setRentals(prev => prev.filter(r => r.fromOrder !== o.refNo));
+                              setRentals(prev => prev.filter(r => !rentalLinkedTo(r, o)));
                             }}
                             className="text-muted hover:text-ink p-1.5"><Ico.trash className="w-4 h-4"/></button>
                         </div>

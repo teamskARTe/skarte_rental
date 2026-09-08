@@ -216,6 +216,15 @@ export const hashId = (s) => { let h=0; for (let i=0;i<s.length;i++) h=(h*31+s.c
 
 export const colorOf = (id) => RENTAL_COLORS[hashId(String(id)) % RENTAL_COLORS.length];
 
+// 캘린더 예약(r)이 문의(o)에서 온 것인지 판정합니다.
+// 새 예약은 문의 고유 id(fromOrderId)로 정확히 연결하고,
+// 옛 예약은 접수번호(fromOrder)로 폴백합니다. 접수번호는 드물게 중복 발급될 수
+// 있어(오프라인 폴백 등) 고유 id 연결이 우선입니다 — 중복 시 서로 다른 문의의
+// 일정이 한 예약으로 묶여 날짜가 고정되는 문제를 막습니다.
+export const rentalLinkedTo = (r, o) =>
+  r.fromOrderId != null ? r.fromOrderId === o.id
+  : (o.refNo != null && r.fromOrder === o.refNo);
+
 // 날짜 문자열(YYYY-MM-DD)에 n일을 더합니다. 로컬 기준이라 UTC 하루 밀림이 없습니다.
 export const addDaysStr = (iso, n) => {
   const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n);
