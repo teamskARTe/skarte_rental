@@ -147,9 +147,11 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
     const couponSaved = o.couponSaved || 0;
     const extraSaved = o.extraSaved || 0;
     const rental = Math.max(0, rentSum - couponSaved - extraSaved);
-    const careFee = o.careFee || 0;
-    const vat = o.vat != null ? o.vat : Math.round((rental + careFee) * 0.10);
-    const total = o.total != null ? o.total : rental + careFee + vat;
+    // 케어·부가세·합계는 저장값 대신 항상 표시 항목들로 다시 계산합니다.
+    // (예전에 저장된 합계가 할인 미반영이어도 화면의 렌탈료+부가세=합계가 항상 맞도록)
+    const careFee = o.care ? Math.round(rental * 0.20) : (o.careFee || 0);
+    const vat = Math.round((rental + careFee) * 0.10);
+    const total = rental + careFee + vat;
     return { rentSum, couponSaved, couponLabel: o.couponLabel || '', extraSaved, extraRate: parseInt(o.extraRate) || 0, rental, careFee, vat, total };
   };
 
@@ -276,7 +278,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const resetAll = () => { if (confirm('장비 목록을 기본값으로 초기화할까요? (등록·수정 내역이 사라집니다)')) setEquipment(DEFAULT_EQUIPMENT); };
 
   const totalStock = equipment.reduce((a,e)=>a+e.stock,0);
-  const orderTotal = orders.reduce((a,o)=>a+o.total,0);
+  const orderTotal = orders.reduce((a,o)=>a + (o.type==='extra' ? (o.total||0) : orderPrice(o).total), 0);
 
   const tabs = [
     { id:'dash',  label:'대시보드' },
@@ -560,6 +562,8 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                 <div className="space-y-3">
                   {list.map(o => {
                     const st = o.status || 'pending';
+                    // 헤더 금액도 할인 반영된 재계산 값으로 표시
+                    const headTotal = o.type === 'extra' ? (o.total || 0) : orderPrice(o).total;
                     return (
                     <div key={o.id} className={`border p-5 ${st==='pending' ? 'border-ink' : 'border-line'}`}>
                       <div className="flex items-start justify-between gap-3 mb-3">
@@ -579,7 +583,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                             </div>
                           )}
                         </div>
-                        {o.total > 0 && <div className="font-mono text-[14px] font-bold shrink-0">{won(o.total)}</div>}
+                        {headTotal > 0 && <div className="font-mono text-[14px] font-bold shrink-0">{won(headTotal)}</div>}
                       </div>
 
                       {/* 내용 */}

@@ -35,9 +35,10 @@ export function MyPage({ user, wishlist, orders, cart, onLogout, onItemClick, on
     const couponSaved = o.couponSaved || 0;
     const extraSaved = o.extraSaved || 0; // 관리자 추가 할인
     const rental = Math.max(0, rentSum - couponSaved - extraSaved);
-    const careFee = o.careFee || 0;
-    const vat = o.vat != null ? o.vat : Math.round((rental + careFee) * 0.10);
-    const total = o.total != null ? o.total : rental + careFee + vat;
+    // 케어·부가세·합계는 저장값 대신 표시 항목들로 항상 다시 계산 (렌탈료+부가세=합계가 맞도록)
+    const careFee = o.care ? Math.round(rental * 0.20) : (o.careFee || 0);
+    const vat = Math.round((rental + careFee) * 0.10);
+    const total = rental + careFee + vat;
     return { rental, couponSaved, couponLabel: o.couponLabel || '', extraSaved, extraRate: parseInt(o.extraRate) || 0, careFee, vat, total };
   };
   const stText = (st) => st==='accepted' ? '수락됨' : st==='rejected' ? '거절됨' : st==='completed' ? '완료됨' : st==='modified' ? '수정됨' : '대기 중';
@@ -84,7 +85,7 @@ export function MyPage({ user, wishlist, orders, cart, onLogout, onItemClick, on
               <div key={o.id} className="bg-bg p-5 md:p-6">
                 <div className="flex items-center justify-between mb-2">
                   <div className="font-mono text-[12px] text-muted">#{o.refNo || o.id} · {o.date} · {stText(o.status)}</div>
-                  <div className="font-mono text-[13px] font-bold">{won(o.total)}</div>
+                  <div className="font-mono text-[13px] font-bold">{won(o.type === 'extra' ? (o.total || 0) : p.total)}</div>
                 </div>
 
                 {/* 렌탈 일정·지점 */}

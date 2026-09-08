@@ -44,9 +44,10 @@ export function QuoteModal({ order, equipment, sets = [], onClose }) {
   const extraSaved = order.extraSaved || 0;                     // 관리자 추가 할인
   const extraRate = parseInt(order.extraRate) || 0;
   const rentalTotal = Math.max(0, rentSum - couponSaved - extraSaved); // 렌탈료 합계
-  const careFee = order.careFee || 0;
-  const vat = order.vat != null ? order.vat : Math.round((rentalTotal + careFee) * 0.1);
-  const total = order.total != null ? order.total : rentalTotal + careFee + vat;
+  // 케어·부가세·합계는 표에 보이는 항목들로 항상 다시 계산 (저장된 옛 합계가 할인 미반영이어도 표가 맞도록)
+  const careFee = order.care ? Math.round(rentalTotal * 0.20) : (order.careFee || 0);
+  const vat = Math.round((rentalTotal + careFee) * 0.1);
+  const total = rentalTotal + careFee + vat;
 
   const print = () => {
     // PDF 저장 시 파일명이 "(날짜) 000님 견적서"가 되도록 문서 제목을 잠시 바꿉니다.
