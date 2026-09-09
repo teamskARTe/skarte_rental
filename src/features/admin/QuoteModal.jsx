@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Ico } from '../../components/Ico';
 import { COMPANY, branchName } from '../../data/defaults';
-import { calcPrice, won } from '../../lib/format';
+import { calcPriceFor, won } from '../../lib/format';
 
 // 접수(order) 한 건을 견적서 문서로 렌더링합니다. 데이터는 접수에서 자동 연동됩니다.
 // 화면에선 미리보기, "인쇄/PDF"로 A4 문서를 출력합니다.
@@ -35,7 +35,7 @@ export function QuoteModal({ order, equipment, sets = [], onClose }) {
     const g = gearInfo(it);
     const days = parseInt(it.days) || 0;
     const qty = parseInt(it.qty) || 0;
-    const amount = calcPrice(g.price, days) * qty;
+    const amount = calcPriceFor(g.price, days, order.noPeriodDisc) * qty;
     return { idx: idx + 1, name: g.name, parts: g.parts, days, qty, amount };
   });
 
@@ -195,7 +195,12 @@ export function QuoteModal({ order, equipment, sets = [], onClose }) {
             </tbody>
           </table>
 
-          <p className="text-[12px] text-muted mt-3">* 구성품은 장비에 따라 자동 표기됩니다. 대여 여부 체크 ( )는 현장에서 확인합니다.</p>
+          <p className="text-[12px] text-muted mt-3">
+            * 구성품은 장비에 따라 자동 표기됩니다. 대여 여부 체크 ( )는 현장에서 확인합니다.
+            {order.noPeriodDisc
+              ? <> 기간할인(3일·7일 자동 할인)은 적용되지 않았습니다.</>
+              : <> 3일 이상 10%, 7일 이상 20% 기간할인이 금액에 반영되어 있습니다.</>}
+          </p>
           <div className="mt-8 pt-4 border-t border-line flex items-center justify-between text-[12px] text-muted">
             <span>{COMPANY.name} · {COMPANY.tel} · {COMPANY.email}</span>
             <span>계좌 {COMPANY.bank} {COMPANY.account} ({COMPANY.accountHolder})</span>

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { COMPANY, branchName } from '../../data/defaults';
-import { calcPrice, won } from '../../lib/format';
+import { calcPriceFor, won } from '../../lib/format';
 
 // 접수(order)를 기반으로 임대차계약서를 만듭니다.
 // 견적서와 동일한 자동 연동 + 계약 전용 항목(담당자·계약자·주민번호·계좌·서명 등)은
@@ -34,7 +34,7 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
     const g = gearInfo(it);
     const days = parseInt(it.days) || 0;
     const qty = parseInt(it.qty) || 0;
-    return { idx: idx + 1, name: g.name, parts: g.parts, days, qty, amount: calcPrice(g.price, days) * qty };
+    return { idx: idx + 1, name: g.name, parts: g.parts, days, qty, amount: calcPriceFor(g.price, days, order.noPeriodDisc) * qty };
   });
 
   const rentSum = rows.reduce((s, r) => s + r.amount, 0);

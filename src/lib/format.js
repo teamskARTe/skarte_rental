@@ -15,6 +15,11 @@ export const calcPrice = (price, days) => {
   return price * days;
 };
 
+// 문의별 "기간할인 미적용" 옵션(noPeriodDisc)을 반영한 항목 금액.
+// 관리자가 문의 수정에서 켜면 3일/7일 자동 할인 없이 정가 × 일수로 계산됩니다.
+export const calcPriceFor = (price, days, noPeriodDisc) =>
+  noPeriodDisc ? price * (parseInt(days) || 0) : calcPrice(price, days);
+
 export const KAKAO_URL = 'https://pf.kakao.com/_VGJxnX/chat';
 
 // 텍스트를 클립보드로 복사. 성공 여부를 Promise<boolean>로 돌려줍니다.

@@ -3,7 +3,7 @@ import { Empty } from '../../components/Empty';
 import { Ico } from '../../components/Ico';
 import { EquipCtx, CategoriesCtx, SiteCtx } from '../../context';
 import { EQUIPMENT, roleLabel, branchName } from '../../data/defaults';
-import { calcPrice, priceLabel, won } from '../../lib/format';
+import { calcPrice, calcPriceFor, priceLabel, won } from '../../lib/format';
 
 const WD = ['일','월','화','수','목','금','토'];
 const fmtDT = (iso, time) => {
@@ -31,7 +31,7 @@ export function MyPage({ user, wishlist, orders, cart, onLogout, onItemClick, on
   // 문의 한 건의 할인 적용 가격 내역 (카톡 복붙과 동일 구성)
   const itemPrice = (it) => (it.price != null ? it.price : (EQUIPMENT.find(e=>e.id===it.id)?.price || 0));
   const orderPrice = (o) => {
-    const rentSum = (o.items||[]).reduce((s,it) => s + calcPrice(itemPrice(it), parseInt(it.days)||0) * (parseInt(it.qty)||0), 0);
+    const rentSum = (o.items||[]).reduce((s,it) => s + calcPriceFor(itemPrice(it), parseInt(it.days)||0, o.noPeriodDisc) * (parseInt(it.qty)||0), 0);
     const couponSaved = o.couponSaved || 0;
     const extraSaved = o.extraSaved || 0; // 관리자 추가 할인
     const rental = Math.max(0, rentSum - couponSaved - extraSaved);
@@ -104,7 +104,7 @@ export function MyPage({ user, wishlist, orders, cart, onLogout, onItemClick, on
                     <div className="space-y-1">
                       {o.items.map((it, i) => {
                         const g = EQUIPMENT.find(e=>e.id===it.id);
-                        const amt = calcPrice(itemPrice(it), parseInt(it.days)||0) * (parseInt(it.qty)||0);
+                        const amt = calcPriceFor(itemPrice(it), parseInt(it.days)||0, o.noPeriodDisc) * (parseInt(it.qty)||0);
                         return (
                           <div key={i} className="flex items-baseline justify-between gap-2 text-[13px]">
                             <span>{it.name || (g ? g.name : it.id)} <span className="text-muted font-mono text-[12px]">· {it.days}일 × {it.qty}대</span></span>

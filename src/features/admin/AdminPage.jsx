@@ -7,7 +7,7 @@ import { QuoteModal } from './QuoteModal';
 import { ContractModal } from './ContractModal';
 import { EquipForm } from './EquipForm';
 import { RentalCalendar } from '../rentals/RentalCalendar';
-import { calcPrice, priceLabel, won, copyText } from '../../lib/format';
+import { calcPrice, calcPriceFor, priceLabel, won, copyText } from '../../lib/format';
 import { youtubeId } from '../content/WorksSection';
 
 export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOrderStatus, rentals, setRentals,
@@ -69,7 +69,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const draftTotals = (() => {
     if (!oDraft) return null;
     const rentSum = (oDraft.items || []).reduce((s, it) => {
-      return s + calcPrice(itemPrice(it), parseInt(it.days) || 0) * (parseInt(it.qty) || 0);
+      return s + calcPriceFor(itemPrice(it), parseInt(it.days) || 0, oDraft.noPeriodDisc) * (parseInt(it.qty) || 0);
     }, 0);
     // 쿠폰: 기존 유지 / 미적용 / 선택한 할인으로 재계산
     let couponSaved = 0, couponLabel = '';
@@ -120,7 +120,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
       let returnDate = o.returnDate;
       const ends = rs.filter(r => r.start).map(r => r.end || addDaysStr(r.start, parseInt(r.days) || 1));
       if (ends.length) returnDate = ends.reduce((m, e) => (e > m ? e : m));
-      const rentSum = items.reduce((s, it) => s + calcPrice(itemPrice(it), parseInt(it.days) || 0) * (parseInt(it.qty) || 0), 0);
+      const rentSum = items.reduce((s, it) => s + calcPriceFor(itemPrice(it), parseInt(it.days) || 0, o.noPeriodDisc) * (parseInt(it.qty) || 0), 0);
       const couponSaved = Math.min(o.couponSaved || 0, rentSum);
       const afterCoupon = Math.max(0, rentSum - couponSaved);
       // 추가 할인은 %가 저장돼 있으면 새 금액 기준으로 다시 계산합니다.
@@ -149,7 +149,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
 
   // 접수 한 건의 할인 적용 가격 내역 (카톡 메시지와 동일한 구성)
   const orderPrice = (o) => {
-    const rentSum = (o.items || []).reduce((s, it) => s + calcPrice(itemPrice(it), parseInt(it.days) || 0) * (parseInt(it.qty) || 0), 0);
+    const rentSum = (o.items || []).reduce((s, it) => s + calcPriceFor(itemPrice(it), parseInt(it.days) || 0, o.noPeriodDisc) * (parseInt(it.qty) || 0), 0);
     const couponSaved = o.couponSaved || 0;
     const extraSaved = o.extraSaved || 0;
     const rental = Math.max(0, rentSum - couponSaved - extraSaved);
@@ -736,14 +736,22 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                             </div>
                           </div>
 
-                          {/* 안심케어 + 금액 재계산 */}
+                          {/* 안심케어 · 기간할인 옵션 + 금액 재계산 */}
                           <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-line">
-                            <button onClick={() => patchDraft({ care: !oDraft.care })} className="flex items-center gap-2">
-                              <span className={`w-4 h-4 border flex items-center justify-center ${oDraft.care ? 'bg-ink border-ink' : 'border-line bg-bg'}`}>
-                                {oDraft.care && <Ico.check className="w-3 h-3 text-bg"/>}
-                              </span>
-                              <span className="text-[12px]">안심케어 (+20%)</span>
-                            </button>
+                            <div className="flex flex-wrap items-center gap-4">
+                              <button onClick={() => patchDraft({ care: !oDraft.care })} className="flex items-center gap-2">
+                                <span className={`w-4 h-4 border flex items-center justify-center ${oDraft.care ? 'bg-ink border-ink' : 'border-line bg-bg'}`}>
+                                  {oDraft.care && <Ico.check className="w-3 h-3 text-bg"/>}
+                                </span>
+                                <span className="text-[12px]">안심케어 (+20%)</span>
+                              </button>
+                              <button onClick={() => patchDraft({ noPeriodDisc: !oDraft.noPeriodDisc })} className="flex items-center gap-2">
+                                <span className={`w-4 h-4 border flex items-center justify-center ${oDraft.noPeriodDisc ? 'bg-ink border-ink' : 'border-line bg-bg'}`}>
+                                  {oDraft.noPeriodDisc && <Ico.check className="w-3 h-3 text-bg"/>}
+                                </span>
+                                <span className="text-[12px]">기간할인 미적용 <span className="text-muted">(3·7일 자동할인 제외)</span></span>
+                              </button>
+                            </div>
                             {draftTotals && (
                               <div className="font-mono text-[12px] text-muted">
                                 렌탈료 {won(draftTotals.rentSum)}
@@ -767,7 +775,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                           <div className="space-y-1">
                             {(o.items||[]).map((it,i) => {
                               const info = pickInfo(it.id);
-                              const amt = calcPrice(itemPrice(it), parseInt(it.days)||0) * (parseInt(it.qty)||0);
+                              const amt = calcPriceFor(itemPrice(it), parseInt(it.days)||0, o.noPeriodDisc) * (parseInt(it.qty)||0);
                               return (
                                 <div key={i} className="flex items-baseline justify-between gap-2 text-[13px]">
                                   <span>{it.name || info?.name || it.id} <span className="font-mono text-[12px] text-muted">· {it.days}일 × {it.qty}대</span></span>
