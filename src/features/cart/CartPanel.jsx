@@ -88,14 +88,9 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
   const afterDiscount = Math.max(0, subtotal - couponSaved);
   const saved = periodSaved + couponSaved;
 
-  // 안심케어 (선택 시 렌탈료의 20%)
-  const [careOn, setCareOn] = useState(!!prefill?.care);
-  const careFee = careOn ? Math.round(afterDiscount * 0.20) : 0;
-
   // VAT 10% (모든 장비 가격은 VAT 미포함 → 마지막에 합산)
-  const beforeVat = afterDiscount + careFee;
-  const vat = Math.round(beforeVat * 0.10);
-  const total = beforeVat + vat;
+  const vat = Math.round(afterDiscount * 0.10);
+  const total = afterDiscount + vat;
 
   // 대여 시작일 (기본: 내일)
   const [orderName, setOrderName] = useState(prefill?.name || '');
@@ -174,9 +169,8 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
     const refLine = `접수번호 · #${refNo || '(발급 예정)'}\n`;
     const whoLine = `성함 · ${orderName || '(미입력)'}\n연락처 · ${orderContact || '(미입력)'}\n`;
 
-    const careLine = careFee > 0 ? `\n안심케어(+20%) · +${won(careFee)}` : '';
     const vatLine = `\n부가세(VAT 10%) · +${won(vat)}`;
-    return `[대여 문의]\n\n${refLine}${whoLine}${rentLine}${backLine}\n${lines}\n\n────────────${p7Line}${p3Line}${couponLine}${careLine}\n렌탈료 합계 · ${won(afterDiscount)}${vatLine}\n합계(VAT 포함) · ${won(total)}\n\n※ 이 내용을 채팅창에 붙여넣어 보내주세요.`;
+    return `[대여 문의]\n\n${refLine}${whoLine}${rentLine}${backLine}\n${lines}\n\n────────────${p7Line}${p3Line}${couponLine}\n렌탈료 합계 · ${won(afterDiscount)}${vatLine}\n합계(VAT 포함) · ${won(total)}\n\n※ 이 내용을 채팅창에 붙여넣어 보내주세요.`;
   };
 
   // 문의 저장(접수번호 발급) → 메시지 복사 → 카카오톡 채널 열기
@@ -197,7 +191,7 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
           // price(단가)를 함께 저장해 두면 견적서에서 나중에 단가가 바뀌어도 접수 당시 금액이 정확합니다.
           items: selItems.map(i => ({ id:i.id, name:i.gear.name, qty:i.qty, days:i.days, price:i.gear.price })),
           total, startDate, type:'cart', name: orderName, contact: orderContact,
-          care: careOn, careFee, vat,
+          vat,
           couponLabel: couponSaved > 0 ? selCoupon.label : '', couponSaved,
           startTime, returnDate, returnTime, pickupBranch, returnBranch,
           mode: orderMode, editRefNo: orderMode === 'edit' ? editRefNo.trim() : '',
@@ -425,29 +419,11 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                   )}
                 </div>
 
-                {/* 안심케어 옵션 */}
-                <button onClick={() => setCareOn(v => !v)}
-                  className="w-full mt-4 flex items-start gap-3 p-3.5 border border-line hover:border-ink transition-colors text-left bg-bg">
-                  <span className={`w-5 h-5 border flex items-center justify-center shrink-0 mt-0.5 ${careOn ? 'bg-ink border-ink' : 'border-line'}`}>
-                    {careOn && <Ico.check className="w-3.5 h-3.5 text-bg"/>}
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="text-[14px] font-bold text-ink">안심케어 추가</span>
-                      <span className="font-mono text-[13px] text-muted whitespace-nowrap">렌탈료의 20%</span>
-                    </span>
-                    <span className="block text-[12px] text-muted leading-snug mt-1">사용 중 파손 시 고객 부담금을 최대 50%까지 경감해 드려요.</span>
-                  </span>
-                </button>
-
                 {/* VAT·최종 요약 */}
                 <div className="space-y-2 text-[14px] mt-4 pt-4 border-t border-line">
                   <div className="flex justify-between text-muted">
                     <span>렌탈료 합계</span><span className="font-mono">{won(afterDiscount)}</span>
                   </div>
-                  {careFee > 0 && (
-                    <div className="flex justify-between"><span>안심케어 <span className="text-muted">+20%</span></span><span className="font-mono">+ {won(careFee)}</span></div>
-                  )}
                   <div className="flex justify-between text-muted">
                     <span>부가세 (VAT 10%)</span><span className="font-mono">+ {won(vat)}</span>
                   </div>

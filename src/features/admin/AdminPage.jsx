@@ -65,7 +65,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const activeDiscounts = (discounts || []).filter(d => d.active !== false);
 
   // 편집 중인 문의의 금액을 장비 목록 기준으로 다시 계산
-  // (렌탈료 → 쿠폰 → 추가 할인 → 안심케어 → VAT)
+  // (렌탈료 → 쿠폰 → 추가 할인 → VAT)
   const draftTotals = (() => {
     if (!oDraft) return null;
     const rentSum = (oDraft.items || []).reduce((s, it) => {
@@ -89,9 +89,8 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
     const extraRate = Math.min(100, Math.max(0, parseInt(oDraft.extraRate) || 0));
     const extraSaved = Math.round(afterCoupon * extraRate / 100);
     const rental = afterCoupon - extraSaved;
-    const careFee = oDraft.care ? Math.round(rental * 0.20) : 0;
-    const vat = Math.round((rental + careFee) * 0.10);
-    return { rentSum, couponSaved, couponLabel, extraRate, extraSaved, rental, careFee, vat, total: rental + careFee + vat };
+    const vat = Math.round(rental * 0.10);
+    return { rentSum, couponSaved, couponLabel, extraRate, extraSaved, rental, vat, total: rental + vat };
   })();
 
   // ── 캘린더 → 문의 연동 ──
@@ -127,13 +126,12 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
       const extraRate = parseInt(o.extraRate) || 0;
       const extraSaved = extraRate > 0 ? Math.round(afterCoupon * extraRate / 100) : Math.min(o.extraSaved || 0, afterCoupon);
       const rental = afterCoupon - extraSaved;
-      const careFee = o.care ? Math.round(rental * 0.20) : 0;
-      const vat = Math.round((rental + careFee) * 0.10);
+      const vat = Math.round(rental * 0.10);
       return { ...o, items,
         startDate: f.start || o.startDate, startTime: f.startTime || o.startTime,
         returnDate, returnTime: f.endTime || o.returnTime,
         pickupBranch: f.pickupBranch || o.pickupBranch, returnBranch: f.returnBranch || o.returnBranch,
-        extraSaved, careFee, vat, total: rental + careFee + vat };
+        extraSaved, vat, total: rental + vat };
     }));
   };
   // 캘린더 편집 핸들러 (rentals 갱신 + 연결된 문의 동기화)
@@ -153,12 +151,11 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
     const couponSaved = o.couponSaved || 0;
     const extraSaved = o.extraSaved || 0;
     const rental = Math.max(0, rentSum - couponSaved - extraSaved);
-    // 케어·부가세·합계는 저장값 대신 항상 표시 항목들로 다시 계산합니다.
+    // 부가세·합계는 저장값 대신 항상 표시 항목들로 다시 계산합니다.
     // (예전에 저장된 합계가 할인 미반영이어도 화면의 렌탈료+부가세=합계가 항상 맞도록)
-    const careFee = o.care ? Math.round(rental * 0.20) : (o.careFee || 0);
-    const vat = Math.round((rental + careFee) * 0.10);
-    const total = rental + careFee + vat;
-    return { rentSum, couponSaved, couponLabel: o.couponLabel || '', extraSaved, extraRate: parseInt(o.extraRate) || 0, rental, careFee, vat, total };
+    const vat = Math.round(rental * 0.10);
+    const total = rental + vat;
+    return { rentSum, couponSaved, couponLabel: o.couponLabel || '', extraSaved, extraRate: parseInt(o.extraRate) || 0, rental, vat, total };
   };
 
   const saveEditOrder = () => {
@@ -168,7 +165,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
       ? { ...rest,
           couponSaved: draftTotals.couponSaved, couponLabel: draftTotals.couponLabel,
           extraRate: draftTotals.extraRate, extraSaved: draftTotals.extraSaved,
-          careFee: draftTotals.careFee, vat: draftTotals.vat, total: draftTotals.total }
+          vat: draftTotals.vat, total: draftTotals.total }
       : rest;
     setOrders(prev => prev.map(o => o.id === next.id ? next : o));
 
@@ -434,14 +431,20 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                 </div>
                 <span className="hidden md:block font-mono text-[11px] text-muted w-16 shrink-0">#{e.id.toUpperCase()}</span>
                 <span className="font-mono text-[11px] text-muted w-12 md:w-20 shrink-0 uppercase">{CATEGORIES.find(c=>c.id===e.cat)?.label}</span>
-                <span className="flex-1 min-w-0">
+                <span className={`flex-1 min-w-0 ${e.hidden ? 'opacity-45' : ''}`}>
                   <span className="text-[14px] truncate block underline-grow inline">{e.name}</span>
+                  {e.hidden && <span className="ml-1.5 align-middle text-[10px] font-mono border border-line text-muted px-1.5 py-0.5">숨김</span>}
                   <span className="text-[12px] md:text-[13px] text-muted truncate block">{e.sub}</span>
                   <span className="md:hidden font-mono text-[12px] text-muted mt-0.5 block">{priceLabel(e.price)} · 재고 {e.stock}대</span>
                 </span>
                 <span className="hidden md:block font-mono text-[13px] font-bold w-24 text-right shrink-0">{priceLabel(e.price)}</span>
                 <span className="hidden md:block font-mono text-[12px] text-muted w-12 text-right shrink-0">{e.stock}대</span>
                 <div className="flex gap-1 shrink-0">
+                  <button onClick={(ev) => { ev.stopPropagation(); setEquipment(prev => prev.map(x => x.id === e.id ? { ...x, hidden: !x.hidden } : x)); }}
+                    className={`text-[12px] font-mono uppercase border px-2 py-1 ${e.hidden ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink'}`}
+                    title={e.hidden ? '홈페이지에 다시 표시' : '홈페이지에서 숨기기 (관리자 페이지에서는 계속 보임)'}>
+                    {e.hidden ? '표시' : '숨김'}
+                  </button>
                   <button onClick={(ev) => { ev.stopPropagation(); startEdit(e); }} className="text-[12px] font-mono uppercase border border-line hover:border-ink px-2 py-1">수정</button>
                   <button onClick={(ev) => { ev.stopPropagation(); delItem(e.id); }} className="text-muted hover:text-ink p-1"><Ico.trash className="w-4 h-4"/></button>
                 </div>
@@ -736,15 +739,9 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                             </div>
                           </div>
 
-                          {/* 안심케어 · 기간할인 옵션 + 금액 재계산 */}
+                          {/* 기간할인 옵션 + 금액 재계산 */}
                           <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-line">
                             <div className="flex flex-wrap items-center gap-4">
-                              <button onClick={() => patchDraft({ care: !oDraft.care })} className="flex items-center gap-2">
-                                <span className={`w-4 h-4 border flex items-center justify-center ${oDraft.care ? 'bg-ink border-ink' : 'border-line bg-bg'}`}>
-                                  {oDraft.care && <Ico.check className="w-3 h-3 text-bg"/>}
-                                </span>
-                                <span className="text-[12px]">안심케어 (+20%)</span>
-                              </button>
                               <button onClick={() => patchDraft({ noPeriodDisc: !oDraft.noPeriodDisc })} className="flex items-center gap-2">
                                 <span className={`w-4 h-4 border flex items-center justify-center ${oDraft.noPeriodDisc ? 'bg-ink border-ink' : 'border-line bg-bg'}`}>
                                   {oDraft.noPeriodDisc && <Ico.check className="w-3 h-3 text-bg"/>}
@@ -757,7 +754,6 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                                 렌탈료 {won(draftTotals.rentSum)}
                                 {draftTotals.couponSaved > 0 && ` − 쿠폰 ${won(draftTotals.couponSaved)}`}
                                 {draftTotals.extraSaved > 0 && ` − 추가 ${won(draftTotals.extraSaved)}`}
-                                {draftTotals.careFee > 0 && ` + 케어 ${won(draftTotals.careFee)}`}
                                 {` + VAT ${won(draftTotals.vat)}`}
                                 <span className="text-ink font-bold ml-1.5">= {won(draftTotals.total)}</span>
                               </div>
@@ -796,9 +792,6 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                                   <div className="flex justify-between text-muted"><span>추가 할인{p.extraRate > 0 ? ` (-${p.extraRate}%)` : ''}</span><span>- {won(p.extraSaved)}</span></div>
                                 )}
                                 <div className="flex justify-between"><span className="text-muted">렌탈료 합계</span><span>{won(p.rental)}</span></div>
-                                {p.careFee > 0 && (
-                                  <div className="flex justify-between text-muted"><span>안심케어 (+20%)</span><span>+ {won(p.careFee)}</span></div>
-                                )}
                                 <div className="flex justify-between text-muted"><span>부가세 (VAT 10%)</span><span>+ {won(p.vat)}</span></div>
                                 <div className="flex justify-between font-bold pt-0.5"><span>합계 (VAT 포함)</span><span>{won(p.total)}</span></div>
                               </div>

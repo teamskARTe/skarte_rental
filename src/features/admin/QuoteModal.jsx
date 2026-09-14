@@ -44,10 +44,9 @@ export function QuoteModal({ order, equipment, sets = [], onClose }) {
   const extraSaved = order.extraSaved || 0;                     // 관리자 추가 할인
   const extraRate = parseInt(order.extraRate) || 0;
   const rentalTotal = Math.max(0, rentSum - couponSaved - extraSaved); // 렌탈료 합계
-  // 케어·부가세·합계는 표에 보이는 항목들로 항상 다시 계산 (저장된 옛 합계가 할인 미반영이어도 표가 맞도록)
-  const careFee = order.care ? Math.round(rentalTotal * 0.20) : (order.careFee || 0);
-  const vat = Math.round((rentalTotal + careFee) * 0.1);
-  const total = rentalTotal + careFee + vat;
+  // 부가세·합계는 표에 보이는 항목들로 항상 다시 계산 (저장된 옛 합계가 할인 미반영이어도 표가 맞도록)
+  const vat = Math.round(rentalTotal * 0.1);
+  const total = rentalTotal + vat;
 
   const print = () => {
     // PDF 저장 시 파일명이 "(날짜) 000님 견적서"가 되도록 문서 제목을 잠시 바꿉니다.
@@ -153,7 +152,7 @@ export function QuoteModal({ order, equipment, sets = [], onClose }) {
                     {r.name}
                     <span className="block text-[12px] text-muted">{r.days}일 × {r.qty}대</span>
                   </td>
-                  <td className="border border-line px-3 py-2 align-top text-[12px]">
+                  <td className="border border-line px-3 py-2 align-top text-[8.5px] leading-[1.6]">
                     {r.parts.length === 0 ? <span className="text-muted">—</span>
                       : r.parts.map((p, i) => <span key={i} className="block">{String(i+1).padStart(2,'0')} {p} (  )</span>)}
                   </td>
@@ -178,12 +177,6 @@ export function QuoteModal({ order, equipment, sets = [], onClose }) {
                 <td className="border border-line px-3 py-2 font-bold" colSpan={3}>렌탈료 합계</td>
                 <td className="border border-line px-3 py-2 text-right font-mono font-bold">{won(rentalTotal)}</td>
               </tr>
-              {careFee > 0 && (
-                <tr>
-                  <td className="border border-line px-3 py-2" colSpan={3}>안심케어 <span className="text-muted">(+20%)</span></td>
-                  <td className="border border-line px-3 py-2 text-right font-mono">+ {won(careFee)}</td>
-                </tr>
-              )}
               <tr>
                 <td className="border border-line px-3 py-2" colSpan={3}>부가세 (VAT 10%)</td>
                 <td className="border border-line px-3 py-2 text-right font-mono">+ {won(vat)}</td>

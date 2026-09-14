@@ -35,11 +35,10 @@ export function MyPage({ user, wishlist, orders, cart, onLogout, onItemClick, on
     const couponSaved = o.couponSaved || 0;
     const extraSaved = o.extraSaved || 0; // 관리자 추가 할인
     const rental = Math.max(0, rentSum - couponSaved - extraSaved);
-    // 케어·부가세·합계는 저장값 대신 표시 항목들로 항상 다시 계산 (렌탈료+부가세=합계가 맞도록)
-    const careFee = o.care ? Math.round(rental * 0.20) : (o.careFee || 0);
-    const vat = Math.round((rental + careFee) * 0.10);
-    const total = rental + careFee + vat;
-    return { rental, couponSaved, couponLabel: o.couponLabel || '', extraSaved, extraRate: parseInt(o.extraRate) || 0, careFee, vat, total };
+    // 부가세·합계는 저장값 대신 표시 항목들로 항상 다시 계산 (렌탈료+부가세=합계가 맞도록)
+    const vat = Math.round(rental * 0.10);
+    const total = rental + vat;
+    return { rental, couponSaved, couponLabel: o.couponLabel || '', extraSaved, extraRate: parseInt(o.extraRate) || 0, vat, total };
   };
   const stText = (st) => st==='accepted' ? '수락됨' : st==='rejected' ? '거절됨' : st==='completed' ? '완료됨' : st==='modified' ? '수정됨' : '대기 중';
   const cartTotal = cartItems.reduce((s,i) => s + calcPrice(i.gear.price, i.days)*i.qty, 0);
@@ -118,7 +117,6 @@ export function MyPage({ user, wishlist, orders, cart, onLogout, onItemClick, on
                       {p.couponSaved > 0 && <div className="flex justify-between text-muted"><span>쿠폰{p.couponLabel ? ` (${p.couponLabel})` : ''}</span><span>- {won(p.couponSaved)}</span></div>}
                       {p.extraSaved > 0 && <div className="flex justify-between text-muted"><span>추가 할인{p.extraRate > 0 ? ` (-${p.extraRate}%)` : ''}</span><span>- {won(p.extraSaved)}</span></div>}
                       <div className="flex justify-between"><span className="text-muted">렌탈료 합계</span><span>{won(p.rental)}</span></div>
-                      {p.careFee > 0 && <div className="flex justify-between text-muted"><span>안심케어 (+20%)</span><span>+ {won(p.careFee)}</span></div>}
                       <div className="flex justify-between text-muted"><span>부가세 (VAT 10%)</span><span>+ {won(p.vat)}</span></div>
                       <div className="flex justify-between font-bold pt-0.5"><span>합계 (VAT 포함)</span><span>{won(p.total)}</span></div>
                     </div>

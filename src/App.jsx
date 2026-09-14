@@ -230,7 +230,7 @@ export function App() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
   // 세트는 EQUIPMENT에 없으므로 set_ 접두사도 유효 처리
-  const cartCount = cart.filter(c => equipment.some(e => e.id === c.id) || (c.id && c.id.startsWith('set_'))).reduce((a, c) => a + c.qty, 0);
+  const cartCount = cart.filter(c => equipment.some(e => e.id === c.id && !e.hidden) || (c.id && c.id.startsWith('set_'))).reduce((a, c) => a + c.qty, 0);
 
   // ── 장바구니 ──
   // 상세 모달에서 고른 일수·수량을 그대로 담습니다 (없으면 1일 1대)
@@ -294,7 +294,7 @@ export function App() {
   //  - mode 'new'  : 새 접수번호 발급
   //  - mode 'edit' : editRefNo(기존 접수번호)의 예약을 이 내용으로 갱신하고 '수정됨'으로 표시
   const recordOrder = async ({ items, total, startDate, type = 'cart', gear, situation, contact, name,
-    startTime, returnDate, returnTime, pickupBranch, returnBranch, care, careFee, vat,
+    startTime, returnDate, returnTime, pickupBranch, returnBranch, vat,
     couponLabel, couponSaved, mode = 'new', editRefNo = '' }) => {
     const norm = (s) => (s || '').trim();
     const fields = {
@@ -307,8 +307,6 @@ export function App() {
       returnTime: returnTime || '',
       pickupBranch: pickupBranch || '',
       returnBranch: returnBranch || '',
-      care: !!care,
-      careFee: careFee || 0,
       vat: vat || 0,
       couponLabel: couponLabel || '',
       couponSaved: couponSaved || 0,
@@ -413,14 +411,14 @@ export function App() {
       startDate: order.startDate || '', startTime: order.startTime || '',
       returnDate: order.returnDate || '', returnTime: order.returnTime || '',
       pickupBranch: order.pickupBranch || '', returnBranch: order.returnBranch || '',
-      care: !!order.care,
     });
     setCartOpen(true);
     setPage('home');
   };
 
   return (
-    <EquipCtx.Provider value={equipment}>
+    // 손님 화면에는 숨김 처리된 장비를 빼고 보여줍니다 (관리자 페이지는 전체 목록 사용)
+    <EquipCtx.Provider value={equipment.filter(e => !e.hidden)}>
     <CategoriesCtx.Provider value={categories}>
     <SiteCtx.Provider value={{ homeBanner, eventBanners, sets, bestIds, notices, brands, discounts, works }}>
       <Nav page={page} setPage={setPage} setCategory={setCategory} cartCount={cartCount}
