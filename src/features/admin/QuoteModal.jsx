@@ -83,7 +83,7 @@ export function QuoteModal({ order, equipment, sets = [], onClose }) {
         {/* 문서 */}
         <div className="quote-doc bg-white text-ink px-7 md:px-10 py-9">
           <div className="flex items-end justify-between border-b-2 border-ink pb-4 mb-6">
-            <h1 className="font-display font-bold text-3xl leading-none">스케아트 견적서</h1>
+            <h1 className="font-display font-bold text-3xl leading-none">스케아트 렌탈 견적서</h1>
             <div className="text-right text-[12px] text-muted font-mono">
               접수번호 #{order.refNo || order.id}<br/>발행일 {order.date || ''}
             </div>

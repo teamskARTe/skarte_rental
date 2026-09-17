@@ -171,14 +171,14 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
           <div className="font-bold text-[12px] mb-1">대여 장비 / 직원 관리</div>
           <div className="flex gap-2 items-stretch mb-4">
             {/* 장비 표 */}
-            <table className="flex-1 border border-line border-collapse self-start">
+            <table className="flex-1 min-w-0 w-full table-fixed border border-line border-collapse self-start break-words">
               <thead>
                 <tr className="bg-[#F4F6F9] text-muted">
                   <th className="border border-line px-1.5 py-1 w-8 font-normal">No.</th>
                   <th className="border border-line px-1.5 py-1 text-left font-normal">장비명 / 모델명</th>
-                  <th className="border border-line px-1.5 py-1 w-[76px] font-normal">S/N · 관리번호</th>
+                  <th className="border border-line px-1 py-1 w-[46px] font-normal whitespace-nowrap text-[8px]">S/N·관리번호</th>
                   <th className="border border-line px-1.5 py-1 w-9 font-normal">수량</th>
-                  <th className="border border-line px-1.5 py-1 text-left w-[150px] font-normal">구성품</th>
+                  <th className="border border-line px-1.5 py-1 text-left w-[140px] font-normal">구성품</th>
                   <th className="border border-line px-1.5 py-1 w-[64px] font-normal">비고</th>
                 </tr>
               </thead>

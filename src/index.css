@@ -67,7 +67,15 @@
     body.printing .quote-overlay { position: static !important; inset: auto !important; background: none !important;
       padding: 0 !important; display: block !important; overflow: visible !important; }
     body.printing .quote-overlay > * { max-width: none !important; margin: 0 !important; }
-    body.printing .quote-doc { padding: 0 !important; }
+    /* A4 인쇄영역(210-12*2=186mm)에 맞춰 폭 고정 → 오른쪽 잘림 방지 */
+    body.printing .quote-doc { padding: 0 !important; width: 186mm !important; max-width: 186mm !important; }
     body.printing .quote-doc table { page-break-inside: auto; }
     body.printing .quote-doc tr { page-break-inside: avoid; }
+    /* 화면과 동일하게 배경색을 인쇄하고, 선은 진한 검정으로 */
+    body.printing .quote-doc,
+    body.printing .quote-doc * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      border-color: #000 !important;
+    }
   }
