@@ -71,11 +71,14 @@
     body.printing .quote-doc { padding: 0 !important; width: 186mm !important; max-width: 186mm !important; }
     body.printing .quote-doc table { page-break-inside: auto; }
     body.printing .quote-doc tr { page-break-inside: avoid; }
-    /* 화면과 동일하게 배경색을 인쇄하고, 선은 진한 검정으로 */
+    /* 화면과 동일하게 배경색을 인쇄하고, 선은 검정 50%로 */
     body.printing .quote-doc,
     body.printing .quote-doc * {
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
-      border-color: #000 !important;
+      border-color: rgba(0, 0, 0, 0.5) !important;
     }
+    /* 아무것도 입력하지 않은 빈칸은 밑줄·안내 문구 없이 깨끗하게 인쇄 */
+    body.printing .quote-doc .fill-empty { border-color: transparent !important; }
+    body.printing .quote-doc input::placeholder { color: transparent !important; }
   }

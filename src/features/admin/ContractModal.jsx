@@ -66,9 +66,11 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
   };
 
   // 밑줄형 입력칸 (저장 안 됨 · 인쇄에 값 그대로 출력)
+  // 비어 있으면 fill-empty 클래스가 붙어 인쇄 시 밑줄이 보이지 않습니다.
   const Fill = ({ w = 'auto', ph = '', def = '', center }) => (
     <input defaultValue={def} placeholder={ph}
-      className={`inline-block border-0 border-b border-line focus:border-ink outline-none bg-transparent px-1 py-0 text-inherit ${center ? 'text-center' : ''}`}
+      onInput={e => e.target.classList.toggle('fill-empty', e.target.value === '')}
+      className={`inline-block border-0 border-b border-line focus:border-ink outline-none bg-transparent px-1 py-0 text-inherit ${def ? '' : 'fill-empty'} ${center ? 'text-center' : ''}`}
       style={{ width: w, fontSize: 'inherit' }}/>
   );
   const Chk = ({ label }) => (

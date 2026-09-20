@@ -74,8 +74,14 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
     // 쿠폰: 기존 유지 / 미적용 / 선택한 할인으로 재계산
     let couponSaved = 0, couponLabel = '';
     if (oDraft.couponId == null || oDraft.couponId === 'keep') {
-      couponSaved = oDraft.couponSaved || 0;
       couponLabel = oDraft.couponLabel || '';
+      // "기존 유지"라도 장비 목록이 바뀌면 금액이 달라져야 하므로,
+      // 같은 이름의 할인이 아직 있으면 그 규칙(%·정액)으로 현재 금액 기준 재계산합니다.
+      // (할인이 삭제돼 규칙을 알 수 없으면 접수 당시 금액을 그대로 둡니다)
+      const orig = couponLabel ? activeDiscounts.find(d => d.label === couponLabel) : null;
+      couponSaved = orig
+        ? (orig.type === 'percent' ? Math.round(rentSum * orig.value / 100) : (orig.value || 0))
+        : (oDraft.couponSaved || 0);
     } else if (oDraft.couponId !== 'none') {
       const c = activeDiscounts.find(d => d.id === oDraft.couponId);
       if (c) {

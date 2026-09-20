@@ -63,8 +63,8 @@ export function QuoteModal({ order, equipment, sets = [], onClose }) {
 
   const Cell = ({ children, label }) => (
     <div className="flex border-b border-line last:border-b-0">
-      <div className="w-28 shrink-0 bg-[#F4F6F9] px-3 py-2 text-[13px] text-muted border-r border-line">{label}</div>
-      <div className="flex-1 px-3 py-2 text-[13px]">{children || ' '}</div>
+      <div className="w-20 shrink-0 bg-[#F4F6F9] px-2.5 py-1 text-[11px] text-muted border-r border-line">{label}</div>
+      <div className="flex-1 px-2.5 py-1 text-[11px]">{children || ' '}</div>
     </div>
   );
 
@@ -89,10 +89,10 @@ export function QuoteModal({ order, equipment, sets = [], onClose }) {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-5 mb-6">
+          <div className="grid md:grid-cols-2 gap-4 mb-4">
             {/* 임대인 */}
             <div>
-              <div className="font-bold text-[14px] mb-1.5">임대인</div>
+              <div className="font-bold text-[13px] mb-1">임대인</div>
               <div className="border border-line">
                 <Cell label="상호명">{COMPANY.name}</Cell>
                 <Cell label="대표">{COMPANY.ceo}</Cell>
@@ -102,7 +102,7 @@ export function QuoteModal({ order, equipment, sets = [], onClose }) {
             </div>
             {/* 임차인 */}
             <div>
-              <div className="font-bold text-[14px] mb-1.5">임차인</div>
+              <div className="font-bold text-[13px] mb-1">임차인</div>
               <div className="border border-line">
                 <Cell label="성함(상호)">{order.name}</Cell>
                 <Cell label="연락처">{order.contact}</Cell>
@@ -111,25 +111,25 @@ export function QuoteModal({ order, equipment, sets = [], onClose }) {
           </div>
 
           {/* 렌탈 일정·지점 */}
-          <div className="font-bold text-[14px] mb-1.5">렌탈</div>
-          <table className="w-full border border-line border-collapse mb-6 text-[13px]">
+          <div className="font-bold text-[13px] mb-1">렌탈</div>
+          <table className="w-full border border-line border-collapse mb-4 text-[11px]">
             <thead>
               <tr className="bg-[#F4F6F9] text-muted">
-                <th className="border border-line px-3 py-2 text-left w-20"></th>
-                <th className="border border-line px-3 py-2 text-left">일정</th>
-                <th className="border border-line px-3 py-2 text-left w-28">지점</th>
+                <th className="border border-line px-2.5 py-1 text-left w-16 font-normal"></th>
+                <th className="border border-line px-2.5 py-1 text-left font-normal">일정</th>
+                <th className="border border-line px-2.5 py-1 text-left w-24 font-normal">지점</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="border border-line px-3 py-2 bg-[#F4F6F9] text-muted">렌탈</td>
-                <td className="border border-line px-3 py-2 font-mono">{fmtDateTime(order.startDate, order.startTime)}</td>
-                <td className="border border-line px-3 py-2">{order.pickupBranch ? branchName(order.pickupBranch) : '—'}</td>
+                <td className="border border-line px-2.5 py-1 bg-[#F4F6F9] text-muted">렌탈</td>
+                <td className="border border-line px-2.5 py-1 font-mono">{fmtDateTime(order.startDate, order.startTime)}</td>
+                <td className="border border-line px-2.5 py-1">{order.pickupBranch ? branchName(order.pickupBranch) : '—'}</td>
               </tr>
               <tr>
-                <td className="border border-line px-3 py-2 bg-[#F4F6F9] text-muted">반납</td>
-                <td className="border border-line px-3 py-2 font-mono">{fmtDateTime(order.returnDate, order.returnTime)}</td>
-                <td className="border border-line px-3 py-2">{order.returnBranch ? branchName(order.returnBranch) : '—'}</td>
+                <td className="border border-line px-2.5 py-1 bg-[#F4F6F9] text-muted">반납</td>
+                <td className="border border-line px-2.5 py-1 font-mono">{fmtDateTime(order.returnDate, order.returnTime)}</td>
+                <td className="border border-line px-2.5 py-1">{order.returnBranch ? branchName(order.returnBranch) : '—'}</td>
               </tr>
             </tbody>
           </table>
