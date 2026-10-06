@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { Ico } from '../../components/Ico';
 import { EquipCtx, SiteCtx, CategoriesCtx } from '../../context';
-import { EQUIPMENT, BRANCHES, branchName } from '../../data/defaults';
+import { EQUIPMENT, ACTIVE_BRANCHES, branchName } from '../../data/defaults';
 import { copyText, won, KAKAO_URL } from '../../lib/format';
 
 export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecordOrder, user, onAuthOpen, ready = true, prefill = null }) {
@@ -120,7 +120,7 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
   const [returnTimeTouched, setReturnTimeTouched] = useState(!!prefill?.returnTime);
   const changeStartTime = (v) => { setStartTime(v); if (!returnTimeTouched) setReturnTime(v); };
   const changeReturnTime = (v) => { setReturnTime(v); setReturnTimeTouched(true); };
-  const firstBranch = (BRANCHES.find(b => !b.disabled) || BRANCHES[0]).id;
+  const firstBranch = ACTIVE_BRANCHES[0].id;
   const [pickupBranch, setPickupBranch] = useState(prefill?.pickupBranch || firstBranch);
   const [returnBranch, setReturnBranch] = useState(prefill?.returnBranch || firstBranch);
 
@@ -472,10 +472,10 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                       className="w-full border border-line focus:border-ink outline-none px-3 py-2.5 text-[14px] bg-bg"/>
                   </div>
                   <div className="flex gap-1.5 mt-2">
-                    {BRANCHES.map(b => (
-                      <button key={b.id} type="button" disabled={b.disabled} onClick={() => !b.disabled && setPickupBranch(b.id)}
-                        className={`flex-1 text-[13px] px-2 py-2 border transition-colors ${b.disabled ? 'opacity-40 cursor-not-allowed border-line bg-[#F5F5F5] text-muted' : pickupBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
-                        {b.name}{b.disabled ? ' (준비 중)' : ''}
+                    {ACTIVE_BRANCHES.map(b => (
+                      <button key={b.id} type="button" onClick={() => setPickupBranch(b.id)}
+                        className={`flex-1 text-[13px] px-2 py-2 border transition-colors ${pickupBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
+                        {b.name}
                       </button>
                     ))}
                   </div>
@@ -493,10 +493,10 @@ export function CartPanel({ cart, onClose, onUpdate, onRemove, onClear, onRecord
                       className="w-full border border-line focus:border-ink outline-none px-3 py-2.5 text-[14px] bg-bg"/>
                   </div>
                   <div className="flex gap-1.5 mt-2">
-                    {BRANCHES.map(b => (
-                      <button key={b.id} type="button" disabled={b.disabled} onClick={() => !b.disabled && setReturnBranch(b.id)}
-                        className={`flex-1 text-[13px] px-2 py-2 border transition-colors ${b.disabled ? 'opacity-40 cursor-not-allowed border-line bg-[#F5F5F5] text-muted' : returnBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
-                        {b.name}{b.disabled ? ' (준비 중)' : ''}
+                    {ACTIVE_BRANCHES.map(b => (
+                      <button key={b.id} type="button" onClick={() => setReturnBranch(b.id)}
+                        className={`flex-1 text-[13px] px-2 py-2 border transition-colors ${returnBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
+                        {b.name}
                       </button>
                     ))}
                   </div>

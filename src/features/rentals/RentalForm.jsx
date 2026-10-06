@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Ico } from '../../components/Ico';
-import { BRANCHES } from '../../data/defaults';
+import { ACTIVE_BRANCHES } from '../../data/defaults';
 
 // 한 사람(또는 팀) 이름으로 여러 장비를 같은 기간에 한 번에 등록합니다.
 // 저장 시 장비별로 rental 한 건씩 만들어 배열로 넘깁니다.
@@ -19,8 +19,8 @@ export function RentalForm({ equipment, sets = [], defaultStart, defaultGearId, 
   const [endTime, setEndTime] = useState('18:00');
   const [rows, setRows] = useState(first ? [{ gearId: first, qty: 1 }] : []);
   const [addGearId, setAddGearId] = useState('');
-  const [pickupBranch, setPickupBranch] = useState(BRANCHES[0].id);
-  const [returnBranch, setReturnBranch] = useState(BRANCHES[0].id);
+  const [pickupBranch, setPickupBranch] = useState(ACTIVE_BRANCHES[0].id);
+  const [returnBranch, setReturnBranch] = useState(ACTIVE_BRANCHES[0].id);
   const [memo, setMemo] = useState('');
   const [err, setErr] = useState('');
 
@@ -118,7 +118,7 @@ export function RentalForm({ equipment, sets = [], defaultStart, defaultGearId, 
             <div>
               <label className="font-mono text-[11px] uppercase tracking-wider text-muted">픽업 지점</label>
               <div className="flex gap-1.5 mt-1">
-                {BRANCHES.map(b => (
+                {ACTIVE_BRANCHES.map(b => (
                   <button key={b.id} type="button" onClick={() => setPickupBranch(b.id)}
                     className={`flex-1 text-[13px] px-2 py-2 border ${pickupBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-transparent'}`}>
                     {b.name}
@@ -129,7 +129,7 @@ export function RentalForm({ equipment, sets = [], defaultStart, defaultGearId, 
             <div>
               <label className="font-mono text-[11px] uppercase tracking-wider text-muted">반납 지점</label>
               <div className="flex gap-1.5 mt-1">
-                {BRANCHES.map(b => (
+                {ACTIVE_BRANCHES.map(b => (
                   <button key={b.id} type="button" onClick={() => setReturnBranch(b.id)}
                     className={`flex-1 text-[13px] px-2 py-2 border ${returnBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-transparent'}`}>
                     {b.name}

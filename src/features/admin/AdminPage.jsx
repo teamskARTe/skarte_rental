@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Ico } from '../../components/Ico';
 import { ImageInput } from '../../components/ImageInput';
-import { DEFAULT_EQUIPMENT, isAdminUser, roleLabel, BRANCHES, branchName, addDaysStr, rentalLinkedTo } from '../../data/defaults';
+import { DEFAULT_EQUIPMENT, isAdminUser, roleLabel, ACTIVE_BRANCHES, branchName, addDaysStr, rentalLinkedTo } from '../../data/defaults';
 import { EquipDetailModal } from './EquipDetailModal';
 import { QuoteModal } from './QuoteModal';
 import { ContractModal } from './ContractModal';
@@ -623,7 +623,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                                   className="w-24 text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-bg"/>
                               </div>
                               <div className="flex gap-1.5">
-                                {BRANCHES.map(b => (
+                                {ACTIVE_BRANCHES.map(b => (
                                   <button key={b.id} onClick={() => patchDraft({ pickupBranch: b.id })}
                                     className={`flex-1 text-[12px] px-2 py-1.5 border ${oDraft.pickupBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
                                     {b.name}
@@ -640,7 +640,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                                   className="w-24 text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-bg"/>
                               </div>
                               <div className="flex gap-1.5">
-                                {BRANCHES.map(b => (
+                                {ACTIVE_BRANCHES.map(b => (
                                   <button key={b.id} onClick={() => patchDraft({ returnBranch: b.id })}
                                     className={`flex-1 text-[12px] px-2 py-1.5 border ${oDraft.returnBranch === b.id ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
                                     {b.name}

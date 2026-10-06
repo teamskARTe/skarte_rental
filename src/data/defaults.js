@@ -181,6 +181,9 @@ export const BRANCHES = [
   },
 ];
 
+// 선택 가능한 지점만 (disabled 지점은 장바구니·관리자·일정 등록 선택지에서 제외)
+export const ACTIVE_BRANCHES = BRANCHES.filter(b => !b.disabled);
+
 export const branchById = (id) => BRANCHES.find(b => b.id === id) || BRANCHES[0];
 export const branchName = (id) => (BRANCHES.find(b => b.id === id) || {}).name || '';
 

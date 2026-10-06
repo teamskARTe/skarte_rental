@@ -90,8 +90,8 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
   const today = new Date();
   const todayFill = `${today.getFullYear()} . ${String(today.getMonth()+1).padStart(2,'0')} . ${String(today.getDate()).padStart(2,'0')}`;
 
-  // 장비 표: 항목 + 빈 줄 채움 (최소 10줄)
-  const ROWS_MIN = 10;
+  // 장비 표: 항목 + 빈 줄 채움 (최소 6줄 — 한 장 인쇄에 맞춤)
+  const ROWS_MIN = 6;
   const blankRows = Math.max(0, ROWS_MIN - items.length);
 
   // 대여 약관 요약 (10개 항목)
@@ -126,7 +126,7 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
         {/* 문서 */}
         <div className="quote-doc bg-white text-ink px-6 md:px-9 py-7 text-[11px] leading-snug">
           {/* 헤더 */}
-          <div className="flex items-start justify-between pb-3 border-b-2 border-ink mb-4">
+          <div className="flex items-start justify-between pb-2.5 border-b-2 border-ink mb-3">
             <div>
               <div className="font-display font-bold text-[26px] leading-none tracking-tight">skARTe</div>
               <div className="font-mono text-[9px] tracking-[0.35em] mt-0.5">RENTAL</div>
@@ -140,7 +140,7 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
 
           {/* 계약자 / 고객 작성 */}
           <div className="font-bold text-[12px] mb-1">계약자 / 고객 작성</div>
-          <table className="w-full border border-line border-collapse mb-4">
+          <table className="w-full border border-line border-collapse mb-3">
             <tbody>
               <tr>
                 <td className="border border-line bg-[#F4F6F9] text-muted px-2 py-[5px] w-[84px]">접수번호</td>
@@ -171,9 +171,8 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
 
           {/* 대여 장비 / 직원 관리 */}
           <div className="font-bold text-[12px] mb-1">대여 장비 / 직원 관리</div>
-          <div className="flex gap-2 items-stretch mb-4">
-            {/* 장비 표 */}
-            <table className="flex-1 min-w-0 w-full table-fixed border border-line border-collapse self-start break-words">
+          {/* 장비 표 (전체 폭) — 아래 직원 작성란과 상하 배치해 한 장 인쇄에 맞춥니다 */}
+          <table className="w-full table-fixed border border-line border-collapse break-words mb-2">
               <thead>
                 <tr className="bg-[#F4F6F9] text-muted">
                   <th className="border border-line px-1.5 py-1 w-8 font-normal">No.</th>
@@ -218,53 +217,57 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
               </tbody>
             </table>
 
-            {/* 직원 작성란 */}
-            <div className="w-[248px] shrink-0 border border-line text-[9.5px]">
-              <div className="bg-ink text-bg text-center font-bold py-1.5 text-[10.5px] tracking-wider">직원 작성란 <span className="font-mono text-[8.5px]">STAFF ONLY</span></div>
-
-              <div className="bg-[#EDEFF3] px-2 py-1 font-bold border-b border-line">렌탈 시 확인</div>
-              <SRow label="렌탈 일시">{order.startDate ? <span className="font-mono">{fmtDT(order.startDate, order.startTime)}</span> : <Fill w="95%"/>}</SRow>
-              <SRow label="렌탈 담당자"><Fill w="95%"/></SRow>
-              <SRow label="렌탈 지점">{order.pickupBranch ? branchName(order.pickupBranch) : <Fill w="95%"/>}</SRow>
-              <SRow label="출고 가방"><Fill w="42px" center/> 개</SRow>
-              <SRow label="예약금">100,000원 <label className="inline-flex items-center gap-1 ml-1"><input type="checkbox" className="w-2.5 h-2.5"/>확인</label></SRow>
-              <SRow label="정상금액"><span className="font-mono font-bold">{won(listSum)}</span></SRow>
-              <SRow label="할인">
-                {discountTotal > 0 ? (
-                  <>
-                    <span className="font-mono font-bold">- {won(discountTotal)}</span>
-                    <span className="block text-[8px] text-muted leading-tight">{discountParts}</span>
-                  </>
-                ) : <>종류 <Fill w="52px"/> <Fill w="30px" center/>% / <Fill w="52px" center/>원</>}
-              </SRow>
-              <SRow label="최종금액"><span className="font-mono font-bold">{won(total)}</span> <span className="text-[8px] text-muted">(VAT 포함 · 부가세 {won(vat)})</span></SRow>
-              <SRow label="결제방식"><Chk label="카드"/><Chk label="현금"/><Chk label="계좌이체"/></SRow>
-              <SRow label="증빙"><Chk label="현금영수증"/><Chk label="세금계산서"/><Chk label="없음"/></SRow>
-              <div className="px-2 py-[5px] border-b border-line text-[8.5px]">
-                <Chk label="수량·구성품"/><Chk label="외관"/><Chk label="작동"/><Chk label="메모리/포맷"/><Chk label="테스트 촬영·재생"/>
+          {/* 직원 작성란 — 렌탈/반납 확인을 좌우 2단으로 배치 (세로 길이 절반) */}
+          <div className="border border-line text-[9.5px] mb-4">
+            <div className="bg-ink text-bg text-center font-bold py-1 text-[10.5px] tracking-wider">직원 작성란 <span className="font-mono text-[8.5px]">STAFF ONLY</span></div>
+            <div className="grid grid-cols-2">
+              {/* 렌탈 시 확인 */}
+              <div className="border-r border-line">
+                <div className="bg-[#EDEFF3] px-2 py-1 font-bold border-b border-line">렌탈 시 확인</div>
+                <SRow label="렌탈 일시">{order.startDate ? <span className="font-mono">{fmtDT(order.startDate, order.startTime)}</span> : <Fill w="95%"/>}</SRow>
+                <SRow label="렌탈 담당자"><Fill w="95%"/></SRow>
+                <SRow label="렌탈 지점">{order.pickupBranch ? branchName(order.pickupBranch) : <Fill w="95%"/>}</SRow>
+                <SRow label="출고 가방"><Fill w="42px" center/> 개</SRow>
+                <SRow label="예약금">100,000원 <label className="inline-flex items-center gap-1 ml-1"><input type="checkbox" className="w-2.5 h-2.5"/>확인</label></SRow>
+                <SRow label="정상금액"><span className="font-mono font-bold">{won(listSum)}</span></SRow>
+                <SRow label="할인">
+                  {discountTotal > 0 ? (
+                    <>
+                      <span className="font-mono font-bold">- {won(discountTotal)}</span>
+                      <span className="block text-[8px] text-muted leading-tight">{discountParts}</span>
+                    </>
+                  ) : <>종류 <Fill w="52px"/> <Fill w="30px" center/>% / <Fill w="52px" center/>원</>}
+                </SRow>
+                <SRow label="최종금액"><span className="font-mono font-bold">{won(total)}</span> <span className="text-[8px] text-muted">(VAT 포함 · 부가세 {won(vat)})</span></SRow>
+                <SRow label="결제방식"><Chk label="카드"/><Chk label="현금"/><Chk label="계좌이체"/></SRow>
+                <SRow label="증빙"><Chk label="현금영수증"/><Chk label="세금계산서"/><Chk label="없음"/></SRow>
+                <div className="px-2 py-[5px] text-[8.5px]">
+                  <Chk label="수량·구성품"/><Chk label="외관"/><Chk label="작동"/><Chk label="메모리/포맷"/><Chk label="테스트 촬영·재생"/>
+                </div>
               </div>
-
-              <div className="bg-[#EDEFF3] px-2 py-1 font-bold border-b border-line">반납 시 확인</div>
-              <SRow label="반납 예정">{order.returnDate ? <span className="font-mono">{fmtDT(order.returnDate, order.returnTime)}</span> : <Fill w="95%"/>}</SRow>
-              <SRow label="실제 반납"><Fill w="95%" ph="20    .    .        :"/></SRow>
-              <SRow label="반납 담당자"><Fill w="95%"/></SRow>
-              <SRow label="반납 지점">{order.returnBranch ? branchName(order.returnBranch) : <Fill w="95%"/>}</SRow>
-              <SRow label="반납 가방"><Fill w="42px" center/> 개</SRow>
-              <SRow label="추가금액"><Fill w="70%" center/> 원</SRow>
-              <SRow label="반납 계좌">은행 <Fill w="46px"/> / 계좌 <Fill w="86px"/></SRow>
-              <SRow label="예금주"><Fill w="95%"/></SRow>
-              <div className="px-2 py-[5px] border-b border-line text-[8.5px]">
-                <Chk label="수량·구성품"/><Chk label="외관"/><Chk label="작동"/><Chk label="메모리"/><Chk label="가방"/><Chk label="이상 유무"/>
+              {/* 반납 시 확인 + 특이사항 */}
+              <div>
+                <div className="bg-[#EDEFF3] px-2 py-1 font-bold border-b border-line">반납 시 확인</div>
+                <SRow label="반납 예정">{order.returnDate ? <span className="font-mono">{fmtDT(order.returnDate, order.returnTime)}</span> : <Fill w="95%"/>}</SRow>
+                <SRow label="실제 반납"><Fill w="95%" ph="20    .    .        :"/></SRow>
+                <SRow label="반납 담당자"><Fill w="95%"/></SRow>
+                <SRow label="반납 지점">{order.returnBranch ? branchName(order.returnBranch) : <Fill w="95%"/>}</SRow>
+                <SRow label="반납 가방"><Fill w="42px" center/> 개</SRow>
+                <SRow label="추가금액"><Fill w="70%" center/> 원</SRow>
+                <SRow label="반납 계좌">은행 <Fill w="52px"/> / 계좌 <Fill w="110px"/></SRow>
+                <SRow label="예금주"><Fill w="95%"/></SRow>
+                <div className="px-2 py-[5px] border-b border-line text-[8.5px]">
+                  <Chk label="수량·구성품"/><Chk label="외관"/><Chk label="작동"/><Chk label="메모리"/><Chk label="가방"/><Chk label="이상 유무"/>
+                </div>
+                <div className="bg-[#EDEFF3] px-2 py-1 font-bold border-b border-line">특이사항 (직원 기재)</div>
+                <textarea rows={2} className="w-full px-2 py-1 outline-none bg-transparent resize-none text-[9.5px]"/>
               </div>
-
-              <div className="bg-[#EDEFF3] px-2 py-1 font-bold border-b border-line">특이사항 (직원 기재)</div>
-              <textarea rows={3} className="w-full px-2 py-1.5 outline-none bg-transparent resize-none text-[9.5px]"/>
             </div>
           </div>
 
           {/* 대여 약관 */}
           <div className="font-bold text-[12px] mb-1">대여 약관 <span className="font-normal text-muted text-[9px]">※ 주요 내용 요약</span></div>
-          <table className="w-full border border-line border-collapse mb-4 text-[8.5px] leading-[1.5]">
+          <table className="w-full border border-line border-collapse mb-3 text-[8.5px] leading-[1.5]">
             <tbody>
               {Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
