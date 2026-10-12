@@ -76,7 +76,7 @@ export function Hero({ setPage, setCategory }) {
             <span className="inline-block w-8 h-px bg-ink"/> Incheon
           </div>
           <p className="text-[15px] leading-relaxed text-muted">
-            <span className="text-ink font-bold">인천 거점</span>의 카메라·시네마 장비 대여 스튜디오. 수도권 서부 촬영팀에게 가장 가까운 곳에서 빠르게 픽업하세요.
+            <span className="text-ink font-bold">인천 거점</span>의 카메라·시네마 장비 대여 스튜디오. 인천 송도에서 빠르게 픽업하세요.
           </p>
           <div className="flex flex-wrap gap-2 mt-1">
             <button onClick={() => setPage('gear')}
@@ -102,7 +102,7 @@ export function Hero({ setPage, setCategory }) {
           {[
             { k:'01', v:'인천 유일 시네마 렌탈', d:'인천 유일의 시네마 장비 렌탈샵' },
             { k:'02', v:'대학생 픽업 편의', d:'인하대학교 내에서 렌탈 가능' },
-            { k:'03', v:'무인 렌탈', d:'원하시는 시간에 렌탈·반납 가능' },
+            { k:'03', v:'예약제 24시간 렌탈', d:'원하시는 시간에 렌탈·반납 가능' },
             { k:'04', v:'운송·세팅 인력 제공', d:'전문 인력의 현장 세팅·바라시 지원' },
           ].map((s, i) => (
             <div key={i} className="bg-bg p-4 md:p-5 relative min-w-0">

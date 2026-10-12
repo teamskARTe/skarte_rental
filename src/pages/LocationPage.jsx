@@ -1,6 +1,6 @@
 import { Ico } from '../components/Ico';
 import { openKakao } from '../lib/format';
-import { BRANCHES, COMPANY, branchMapEmbed, branchKakaoMap, branchNaverMap } from '../data/defaults';
+import { ACTIVE_BRANCHES, COMPANY, branchMapEmbed, branchKakaoMap, branchNaverMap } from '../data/defaults';
 
 export function LocationPage({ setPage }) {
   return (
@@ -8,16 +8,16 @@ export function LocationPage({ setPage }) {
       <div className="font-mono text-[12px] uppercase tracking-[0.2em] text-muted mb-3">— 지점 안내</div>
       <h1 className="font-display font-bold text-4xl md:text-6xl leading-none mb-4">지점 정보</h1>
       <p className="text-muted text-[15px] max-w-xl mb-12">
-        <span className="text-ink font-bold">송도점</span>과 <span className="text-ink font-bold">인하대점</span> 두 곳에서 픽업·반납하실 수 있습니다.
-        원하시는 지점을 장바구니에서 선택해 주세요.
+        <span className="text-ink font-bold">송도점</span>에서 픽업·반납하실 수 있습니다.
+        모든 픽업·반납은 사전 예약제로 운영됩니다.
       </p>
 
-      {/* 두 지점 나란히 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-line mb-4">
-        {BRANCHES.map(b => (
-          <div key={b.id} className="bg-bg flex flex-col">
+      {/* 지점 카드 (지점이 하나면 지도·정보를 좌우로 배치) */}
+      <div className={`grid grid-cols-1 ${ACTIVE_BRANCHES.length > 1 ? 'md:grid-cols-2 gap-px bg-line' : ''} mb-4`}>
+        {ACTIVE_BRANCHES.map(b => (
+          <div key={b.id} className={ACTIVE_BRANCHES.length === 1 ? 'bg-bg border border-line md:grid md:grid-cols-2' : 'bg-bg flex flex-col'}>
             {/* 지도 */}
-            <div className="border-b border-line aspect-[16/10] overflow-hidden bg-[#F7F7F7]">
+            <div className={`border-b border-line aspect-[16/10] overflow-hidden bg-[#F7F7F7] ${ACTIVE_BRANCHES.length === 1 ? 'md:border-b-0 md:border-r md:aspect-auto md:h-full' : ''}`}>
               <iframe title={`스케아트 렌탈 ${b.name} 위치`} src={branchMapEmbed(b)}
                 className="w-full h-full" style={{border:0}} loading="lazy" referrerPolicy="no-referrer-when-downgrade"/>
             </div>
@@ -78,8 +78,6 @@ export function LocationPage({ setPage }) {
         {[
           { t:'송도점 — 대중교통', d:'인천지하철 1호선 지식정보단지역에서 이용하실 수 있습니다. 송도 BRC 스마트밸리 지식산업센터 E동으로 오신 뒤 19층 1905-A호로 이동하세요.' },
           { t:'송도점 — 자가용·주차', d:'지하 1층 주차장에서 E 18~20 앞에 있는 비상용 엘리베이터 및 화물용 엘리베이터를 이용해서 장비 운송하시면 편리합니다.' },
-          { t:'인하대점 — 대중교통', d:'수인분당선 인하대역에서 버스 또는 도보로 이동할 수 있습니다. 인하대학교 정문 방면 시내버스 정류장에서 가까우며, 인하드림센터는 용현캠퍼스 내에 있습니다.' },
-          { t:'인하대점 — 자가용·주차', d:'인하대학교 용현캠퍼스 / 인하드림센터 주차장을 이용하실 수 있습니다. 장비 상·하차 시 건물 1층에 정차 후 6층으로 이동하세요.' },
         ].map(b => (
           <div key={b.t} className="bg-bg p-6 md:p-8">
             <div className="font-display text-xl md:text-2xl mb-2">{b.t}</div>
@@ -89,7 +87,7 @@ export function LocationPage({ setPage }) {
       </div>
 
       {/* 주차 안내 (송도점) */}
-      <div className="border border-line p-6 md:p-8 mb-px">
+      <div className="border border-line p-6 md:p-8 mb-16">
         <div className="font-display text-xl md:text-2xl mb-1">송도점 주차</div>
         <p className="text-[13px] text-muted mb-5">건물 주차장을 이용하실 수 있습니다.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-line">
@@ -101,25 +99,6 @@ export function LocationPage({ setPage }) {
             <div className="font-mono text-[12px] text-muted mb-1">이후</div>
             <div className="font-display text-lg leading-none">렌탈 시간에 따라 주차비 지원</div>
           </div>
-        </div>
-      </div>
-
-      {/* 주차 요금 안내 (인하대점) */}
-      <div className="border border-line p-6 md:p-8 mb-16">
-        <div className="font-display text-xl md:text-2xl mb-1">인하대점 학교 주차 요금</div>
-        <p className="text-[13px] text-muted mb-5">인하대학교 주차장 이용 시 아래 요금이 적용됩니다.</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line mb-4">
-          {[
-            { t:'최초 15분', v:'무료' },
-            { t:'~30분', v:'2,000원' },
-            { t:'30분 초과', v:'10분당 500원' },
-            { t:'1일 최대', v:'30,000원' },
-          ].map(p => (
-            <div key={p.t} className="bg-bg p-4">
-              <div className="font-mono text-[12px] text-muted mb-1">{p.t}</div>
-              <div className="font-display text-lg leading-none">{p.v}</div>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -138,7 +117,7 @@ export function LocationPage({ setPage }) {
           </div>
         ))}
       </div>
-      <p className="text-[13px] text-muted mb-16">* 모든 장비는 방문 수령·반납으로 진행됩니다. 픽업 지점과 반납 지점을 서로 다르게 선택하실 수 있어요.</p>
+      <p className="text-[13px] text-muted mb-16">* 모든 장비는 방문 수령·반납으로 진행됩니다.</p>
 
       {/* CTA */}
       <div className="border border-ink p-8 md:p-12 flex flex-col md:flex-row md:items-center justify-between gap-6">

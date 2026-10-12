@@ -1,7 +1,7 @@
 import { LOGO_WHITE } from '../assets/logo';
 import { Ico } from './Ico';
 import { openKakao } from '../lib/format';
-import { BRANCHES, COMPANY } from '../data/defaults';
+import { ACTIVE_BRANCHES, COMPANY } from '../data/defaults';
 
 export function Footer({ setPage }) {
   return (
@@ -37,7 +37,7 @@ export function Footer({ setPage }) {
 
           <div className="text-[12px] tracking-tight text-bg/45 mb-3">영업시간</div>
           <div className="space-y-4 text-[14px] leading-relaxed">
-            {BRANCHES.map(b => (
+            {ACTIVE_BRANCHES.map(b => (
               <div key={b.id}>
                 <div className="font-bold">{b.name}</div>
                 {b.hours.map((h,i) => <div key={i} className={i === 0 ? '' : 'text-bg/45'}>{h}</div>)}
