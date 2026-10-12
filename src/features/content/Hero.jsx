@@ -98,12 +98,11 @@ export function Hero({ setPage, setCategory }) {
           {Array.from({length:12}).map((_,i) => <span key={i} className="w-3 h-2 md:w-4 md:h-2.5 bg-bg rounded-[1px] shrink-0"/>)}
         </div>
         {/* 프레임 칸들 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
           {[
             { k:'01', v:'인천 유일 시네마 렌탈', d:'인천 유일의 시네마 장비 렌탈샵' },
-            { k:'02', v:'대학생 픽업 편의', d:'인하대학교 내에서 렌탈 가능' },
-            { k:'03', v:'예약제 24시간 렌탈', d:'원하시는 시간에 렌탈·반납 가능' },
-            { k:'04', v:'운송·세팅 인력 제공', d:'전문 인력의 현장 세팅·바라시 지원' },
+            { k:'02', v:'예약제 24시간 렌탈', d:'원하시는 시간에 렌탈·반납 가능' },
+            { k:'03', v:'운송·세팅 인력 제공', d:'전문 인력의 현장 세팅·바라시 지원' },
           ].map((s, i) => (
             <div key={i} className="bg-bg p-4 md:p-5 relative min-w-0">
               <div className="font-mono text-[10px] text-muted/70 mb-1.5 flex items-center justify-between gap-2">
