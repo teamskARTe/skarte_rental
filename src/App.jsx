@@ -13,7 +13,7 @@ import { NoticePopup } from './features/content/NoticePopup';
 import { DetailModal } from './features/equipment/DetailModal';
 import { GearPage } from './features/equipment/GearPage';
 import { sb, store, CLOUD_KEYS, onWriteError, getLastLoadError } from './lib/supabase';
-import { hashPassword, verifyPassword, isLegacyPlain } from './lib/auth';
+import { hashPassword, verifyPassword } from './lib/auth';
 import { copyText } from './lib/format';
 import { mergeListById } from './lib/merge';
 import { GuidePage } from './pages/GuidePage';
@@ -248,55 +248,154 @@ export function App() {
   const removeFromCart = (id) => setCart(prev => prev.filter(c => c.id !== id));
   const clearCart = () => setCart([]);
 
-  // ── 인증 (비밀번호 해싱 + Supabase 저장) ──
+  // ── 인증 ──
+  // 클라우드 연결 시: Supabase Auth 사용 (비밀번호는 서버 bcrypt 보관 — 클라이언트에 안 내려옴)
+  // 미연결 시: 기존 로컬 방식(skeart_users + 해시) 유지
   const signup = async ({ name, email, pw }) => {
     const em = email.toLowerCase();
     if (em === ADMIN_EMAIL.toLowerCase()) return '이미 가입된 이메일입니다.';
-    let current = users;
-    if (sb) { const fresh = await store.cloudReadKey('skeart_users'); if (fresh) current = fresh; }
-    if (current.find(u => u.email === em)) return '이미 가입된 이메일입니다.';
-    const hashed = await hashPassword(pw);
-    const u = { name: name.trim(), email: em, pw: hashed, role: ROLE_USER, joinedAt: new Date().toISOString().slice(0,10) };
-    setUsers([...current, u]);
-    const sess = { name: u.name, email: u.email, role: u.role, joinedAt: u.joinedAt };
-    setUser(sess); setAuthOpen(false); showToast(`${u.name}님, 환영합니다!`);
-    return true;
-  };
-  const login = async (email, pw) => {
-    const em = email.toLowerCase();
-    let current = users;
-    if (sb) { const fresh = await store.cloudReadKey('skeart_users'); if (fresh) { current = fresh; setUsers(fresh); } }
-    const u = current.find(x => x.email === em);
-    if (!u) return '가입되지 않은 이메일입니다.';
-    const ok = await verifyPassword(pw, u.pw);
-    if (!ok) return '비밀번호가 일치하지 않습니다.';
-    // 로그인 차단 계정 (블랙리스트와 별개 플래그)
-    if (u.loginBlocked) return '이용이 제한된 계정입니다. 자세한 내용은 카카오톡 채널로 문의해 주세요.';
-    // 기존 평문 비밀번호면 해시로, role이 없던 계정이면 등급을 채워서 업그레이드
-    const role = roleOf(u);
-    // 관리자는 Supabase Auth에도 함께 로그인합니다.
-    // site_data 쓰기 잠금(RLS) 후에는 이 JWT가 있어야 관리자 저장이 가능합니다.
-    // (Supabase 대시보드 → Authentication → Users 에 같은 이메일·비밀번호 계정 필요)
-    if (isAdminUser(u) && sb) {
-      try {
-        const { error } = await sb.auth.signInWithPassword({ email: em, password: pw });
-        if (error) showToast('⚠ 저장 권한 로그인 실패 — 관리자 저장이 제한될 수 있어요');
-      } catch (e) { /* 네트워크 오류 등 — 저장 실패 시 화면 배너로 표시됩니다 */ }
+    if (!sb) {
+      // 로컬 모드 폴백 (기존 방식)
+      if (users.find(u => u.email === em)) return '이미 가입된 이메일입니다.';
+      const hashed = await hashPassword(pw);
+      const u = { name: name.trim(), email: em, pw: hashed, role: ROLE_USER, joinedAt: new Date().toISOString().slice(0,10) };
+      setUsers([...users, u]);
+      setUser({ name: u.name, email: u.email, role: u.role, joinedAt: u.joinedAt });
+      setAuthOpen(false); showToast(`${u.name}님, 환영합니다!`);
+      return true;
     }
-    const needsPwUpgrade = isLegacyPlain(u.pw);
-    if (needsPwUpgrade || !u.role) {
-      const hashed = needsPwUpgrade ? await hashPassword(pw) : u.pw;
-      setUsers(current.map(x => x.email === em ? { ...x, pw: hashed, role } : x));
+    const { data, error } = await sb.auth.signUp({
+      email: em, password: pw, options: { data: { name: name.trim() } },
+    });
+    if (error) {
+      if (/already registered/i.test(error.message)) return '이미 가입된 이메일입니다.';
+      if (/at least 6/i.test(error.message)) return '비밀번호는 6자 이상이어야 합니다.';
+      return `가입 실패: ${error.message}`;
     }
-    const sess = { name: u.name, email: u.email, role, joinedAt: u.joinedAt };
-    setUser(sess); setAuthOpen(false); showToast(`${u.name}님, 다시 오셨네요!`);
+    // Supabase에서 "Confirm email"이 켜져 있으면 세션 없이 돌아옵니다 (설정에서 꺼주세요)
+    if (!data?.session) return '확인 메일이 발송되었습니다. 메일 인증 후 로그인해 주세요.';
+    const sess = { name: name.trim(), email: em, role: ROLE_USER, joinedAt: new Date().toISOString().slice(0,10) };
+    setUser(sess); setAuthOpen(false); showToast(`${sess.name}님, 환영합니다!`);
     return true;
   };
 
-  // 관리자 회원 관리: 메모·블랙리스트 등 회원 정보 갱신 (이메일 기준)
-  const updateUserInfo = (email, patch) => {
-    setUsers(prev => prev.map(u => u.email === email ? { ...u, ...patch } : u));
+  const login = async (email, pw) => {
+    const em = email.toLowerCase();
+    if (!sb) {
+      // 로컬 모드 폴백 (기존 방식)
+      const u = users.find(x => x.email === em);
+      if (!u) return '가입되지 않은 이메일입니다.';
+      const ok = await verifyPassword(pw, u.pw);
+      if (!ok) return '비밀번호가 일치하지 않습니다.';
+      if (u.loginBlocked) return '이용이 제한된 계정입니다. 자세한 내용은 카카오톡 채널로 문의해 주세요.';
+      const role = roleOf(u);
+      setUser({ name: u.name, email: u.email, role, joinedAt: u.joinedAt });
+      setAuthOpen(false); showToast(`${u.name}님, 다시 오셨네요!`);
+      return true;
+    }
+
+    let displayName = '', joinedAt = '';
+    // 1) Supabase Auth 로그인 시도
+    const { data, error } = await sb.auth.signInWithPassword({ email: em, password: pw });
+    if (!error && data?.user) {
+      displayName = data.user.user_metadata?.name || '';
+      joinedAt = (data.user.created_at || '').slice(0, 10);
+    } else {
+      // 2) 아직 이전 안 된 기존 회원: 옛 목록으로 검증 → 같은 비밀번호로 Auth 계정 자동 생성
+      const legacyList = (await store.cloudReadKey('skeart_users')) || users;
+      const legacy = (legacyList || []).find(x => x.email === em);
+      if (!legacy) return '이메일 또는 비밀번호가 일치하지 않습니다.';
+      const ok = await verifyPassword(pw, legacy.pw);
+      if (!ok) return '이메일 또는 비밀번호가 일치하지 않습니다.';
+      if (legacy.loginBlocked) return '이용이 제한된 계정입니다. 자세한 내용은 카카오톡 채널로 문의해 주세요.';
+      displayName = legacy.name || ''; joinedAt = legacy.joinedAt || '';
+      const su = await sb.auth.signUp({ email: em, password: pw, options: { data: { name: displayName } } });
+      if (su.error || !su.data?.session) {
+        // 이전 실패(메일 인증 설정 등) → 옛 방식으로라도 로그인은 유지
+        console.warn('[SKARTE] Auth 자동 이전 실패:', su.error?.message);
+      }
+    }
+
+    // 로그인 차단 확인 (관리자 전용 admin_notes — 서버 함수로 차단 여부만 조회)
+    try {
+      const { data: allowed } = await sb.rpc('login_allowed', { p_email: em });
+      if (allowed === false) {
+        try { await sb.auth.signOut(); } catch (e) {}
+        return '이용이 제한된 계정입니다. 자세한 내용은 카카오톡 채널로 문의해 주세요.';
+      }
+    } catch (e) { /* 함수 미설치 시 통과 (설치 전 과도기) */ }
+
+    const sess = {
+      name: displayName || em.split('@')[0], email: em,
+      role: roleOf({ email: em }), joinedAt: joinedAt || new Date().toISOString().slice(0,10),
+    };
+    setUser(sess); setAuthOpen(false); showToast(`${sess.name}님, 다시 오셨네요!`);
+    return true;
   };
+
+  // ── 관리자 회원 관리 (메모·블랙리스트·로그인 차단) ──
+  // 클라우드 연결 시: 관리자 전용 admin_notes 테이블에 저장 (회원 본인도 못 읽음)
+  // 미연결 시: 기존처럼 로컬 회원 목록에 저장
+  const [adminNotes, setAdminNotes] = useState({}); // email → note
+  const [profiles, setProfiles] = useState([]);     // Supabase Auth 회원 프로필 (관리자만 조회됨)
+  useEffect(() => {
+    if (!sb || !isAdmin || !loaded) return;
+    let on = true;
+    (async () => {
+      await sb.auth.getSession(); // 새로고침 직후 세션 복원 대기
+      const { data: ps } = await sb.from('profiles').select('email,name,joined_at');
+      const { data: ns } = await sb.from('admin_notes').select('*');
+      if (!on) return;
+      if (ps) setProfiles(ps);
+      if (ns) setAdminNotes(Object.fromEntries(ns.map(n => [n.email, n])));
+    })();
+    return () => { on = false; };
+  }, [isAdmin, loaded]);
+
+  const updateUserInfo = async (email, patch) => {
+    const em = String(email).toLowerCase();
+    if (!sb) { setUsers(prev => prev.map(u => u.email === email ? { ...u, ...patch } : u)); return; }
+    // 기존 메모와 병합해 전체 행으로 upsert (snake_case 변환)
+    const cur = adminNotes[em] || {};
+    const next = {
+      email: em,
+      memo:          'memo'        in patch ? patch.memo        : (cur.memo || ''),
+      blacklisted:   'blacklisted' in patch ? !!patch.blacklisted : !!cur.blacklisted,
+      black_reason:  'blackReason' in patch ? patch.blackReason : (cur.black_reason || ''),
+      black_contact: 'blackContact'in patch ? patch.blackContact: (cur.black_contact || ''),
+      black_at:      'blackAt'     in patch ? patch.blackAt     : (cur.black_at || null),
+      login_blocked: 'loginBlocked'in patch ? !!patch.loginBlocked : !!cur.login_blocked,
+      block_at:      'blockAt'     in patch ? patch.blockAt     : (cur.block_at || null),
+      updated_at: new Date().toISOString(),
+    };
+    if (next.black_at === '') next.black_at = null;
+    if (next.block_at === '') next.block_at = null;
+    const { error } = await sb.from('admin_notes').upsert(next);
+    if (error) { showToast(`⚠ 저장 실패: ${error.message}`); return; }
+    setAdminNotes(prev => ({ ...prev, [em]: next }));
+  };
+
+  // 관리자 페이지에 넘길 회원 목록: Auth 프로필 + (아직 이전 안 된) 옛 회원 + 관리자 메모 병합
+  // 비밀번호 해시는 제거하고 넘깁니다.
+  const memberList = (() => {
+    const byEmail = new Map();
+    (users || []).forEach(u => { const { pw, ...rest } = u; byEmail.set(u.email, rest); });
+    profiles.forEach(p => byEmail.set(p.email, {
+      ...(byEmail.get(p.email) || {}),
+      name: p.name || (byEmail.get(p.email)?.name) || '', email: p.email,
+      joinedAt: p.joined_at || byEmail.get(p.email)?.joinedAt || '',
+    }));
+    Object.entries(adminNotes).forEach(([em, n]) => {
+      const base = byEmail.get(em) || { email: em, name: '' };
+      byEmail.set(em, {
+        ...base,
+        memo: n.memo || '', blacklisted: !!n.blacklisted,
+        blackReason: n.black_reason || '', blackContact: n.black_contact || '', blackAt: n.black_at || '',
+        loginBlocked: !!n.login_blocked, blockAt: n.block_at || '',
+      });
+    });
+    return [...byEmail.values()];
+  })();
   const logout = () => {
     setUser(null); setPage('home'); showToast('로그아웃되었습니다.');
     // 관리자 Supabase Auth 세션도 함께 종료
@@ -463,7 +562,7 @@ export function App() {
             : !loaded
               ? <AdminUnavailable/>
               : <AdminPage equipment={equipment} setEquipment={setEquipment} orders={orders} setOrders={setOrders} updateOrderStatus={updateOrderStatus} rentals={rentals} setRentals={setRentals}
-                  users={users} onUpdateUser={updateUserInfo} categories={categories} setCategories={setCategories}
+                  users={memberList} onUpdateUser={updateUserInfo} categories={categories} setCategories={setCategories}
                   shareKey={shareKey} onRegenerateShareKey={regenerateShareKey}
                   homeBanner={homeBanner} setHomeBanner={setHomeBanner}
                   eventBanners={eventBanners} setEventBanners={setEventBanners}

@@ -104,7 +104,21 @@ const FALLBACK_ANON_KEY = 'eyJhbGciOi...';
 
 > 참고: `skeart_orders`(문의) · `skeart_users`(회원) · `skeart_rentals_v2`(예약)는
 > 손님 흐름이 직접 쓰기 때문에 이번 단계에서는 열려 있습니다.
-> 이 세 키까지 보호하려면 다음 단계인 **Supabase Auth 전면 이전**(`0002_auth_profiles.sql`)이 필요합니다.
+
+---
+
+## 🔐 2단계: 회원 인증을 Supabase Auth로 이전
+
+비밀번호를 공개 읽기 가능한 site_data가 아니라 **Supabase Auth(서버, bcrypt)** 로 옮깁니다.
+
+1. Authentication → Sign In / Providers → Email 에서 **"Confirm email" 끄기**
+2. `supabase/migrations/0005_auth_migration.sql` 을 SQL Editor에서 실행
+3. 확인: 새 이메일 가입 → 즉시 로그인 / 기존 회원 로그인(자동 이전) / 관리자 회원 관리 메모·블랙리스트 저장
+4. 몇 주 뒤 기존 회원이 대부분 이전되면: `delete from site_data where key = 'skeart_users';`
+   (옛 비밀번호 해시 공개 데이터 삭제 — 이것으로 노출 종료)
+
+- 기존 회원은 **다음 로그인 때 같은 비밀번호로 자동 이전**됩니다 (회원은 체감 없음)
+- 메모·블랙리스트·로그인 차단은 관리자 전용 `admin_notes` 테이블에 저장되어 회원 본인도 읽을 수 없습니다
 
 ---
 
