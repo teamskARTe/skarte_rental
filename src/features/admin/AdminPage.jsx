@@ -12,7 +12,7 @@ import { youtubeId } from '../content/WorksSection';
 
 export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOrderStatus, rentals, setRentals,
   homeBanner, setHomeBanner, eventBanners, setEventBanners, sets, setSets, bestIds, setBestIds,
-  notices, setNotices, brands, setBrands, discounts, setDiscounts, works, setWorks, users: usersProp, categories, setCategories,
+  notices, setNotices, brands, setBrands, discounts, setDiscounts, works, setWorks, users: usersProp, onUpdateUser, categories, setCategories,
   shareKey, onRegenerateShareKey, onExit }) {
   const CATEGORIES = categories;
   const scheduleUrl = shareKey ? `${window.location.origin}/schedule?key=${shareKey}` : '';
@@ -209,6 +209,37 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const allUsers = [...(usersProp || [])].sort((a, b) => isAdminUser(b) - isAdminUser(a));
   const users = allUsers.filter(u => !isAdminUser(u));
 
+  // ── 회원 관리 (메모 · 블랙리스트) ──
+  const blackCount = allUsers.filter(u => u.blacklisted).length;
+  const [userFilter, setUserFilter] = useState('all'); // 'all' | 'black'
+  const [openUser, setOpenUser] = useState(null);      // 펼쳐진 회원 이메일
+  const [uMemo, setUMemo] = useState('');
+  const [uReason, setUReason] = useState('');
+  const [uContact, setUContact] = useState('');
+  const toggleUserRow = (u) => {
+    if (openUser === u.email) { setOpenUser(null); return; }
+    setOpenUser(u.email);
+    setUMemo(u.memo || ''); setUReason(u.blackReason || ''); setUContact(u.blackContact || '');
+  };
+  const saveUserMemo = (u) => onUpdateUser && onUpdateUser(u.email, { memo: uMemo.trim() });
+  const addBlacklist = (u) => {
+    if (!confirm(`${u.name || u.email}님을 블랙리스트에 등록할까요?\n등록하면 이 계정으로 로그인할 수 없습니다.`)) return;
+    onUpdateUser && onUpdateUser(u.email, {
+      blacklisted: true, blackReason: uReason.trim(), blackContact: uContact.trim(),
+      blackAt: new Date().toISOString().slice(0, 10),
+    });
+  };
+  const removeBlacklist = (u) => {
+    if (!confirm(`${u.name || u.email}님을 블랙리스트에서 해제할까요?`)) return;
+    onUpdateUser && onUpdateUser(u.email, { blacklisted: false });
+  };
+  // 문의의 성함 또는 연락처가 블랙리스트 회원과 일치하면 경고 표시용
+  const normPhone = (s) => String(s || '').replace(/\D/g, '');
+  const blackMatch = (o) => allUsers.some(u => u.blacklisted && (
+    (u.name && o.name && u.name.trim() === String(o.name).trim()) ||
+    (normPhone(u.blackContact).length >= 8 && normPhone(u.blackContact) === normPhone(o.contact))
+  ));
+
   // ── 콘텐츠 임시(draft) 상태: 저장 버튼을 눌러야 실제 반영 ──
   const [draft, setDraft] = useState({ homeBanner, eventBanners, brands, works, discounts, notices, sets, bestIds });
   // 외부 데이터가 바뀌면(클라우드 로드 등) draft 동기화
@@ -295,7 +326,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
     { id:'gear',  label:`장비 관리 · ${equipment.length}` },
     { id:'category', label:`카테고리 · ${(categories||[]).length}` },
     { id:'order', label:`문의 관리 · ${orders.length}${orders.filter(o=>(o.status||'pending')==='pending').length ? ` (대기 ${orders.filter(o=>(o.status||'pending')==='pending').length})` : ''}` },
-    { id:'user',  label:`회원 · ${users.length}` },
+    { id:'user',  label:`회원 관리 · ${users.length}${blackCount ? ` (블랙 ${blackCount})` : ''}` },
     { id:'set',   label:`세트 상품 · ${dSets.length}` },
     { id:'best',  label:`베스트 · ${dBestIds.length}` },
     { id:'discount', label:`할인 이벤트 · ${dDiscounts.length}` },
@@ -589,6 +620,9 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                             {o.name && <span className="text-[15px] font-bold">· {o.name}</span>}
                             <span className={`text-[11px] font-mono px-2 py-0.5 ${stBadge(st)}`}>{stLabel(st)}</span>
                             <span className="text-[11px] font-mono px-2 py-0.5 border border-line text-muted">{o.type==='extra' ? '추가장비' : '대여'}</span>
+                            {blackMatch(o) && (
+                              <span className="text-[11px] font-mono font-bold px-2 py-0.5 bg-red-600 text-white" title="성함 또는 연락처가 블랙리스트 회원과 일치합니다">⚠ 블랙리스트</span>
+                            )}
                           </div>
                           <div className="font-mono text-[12px] text-muted mt-1">접수 {o.date}</div>
                           {o.type !== 'extra' && (o.startDate || o.returnDate) && (
@@ -860,35 +894,110 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
         )
       )}
 
-      {/* 회원 */}
+      {/* 회원 관리 */}
       {tab==='user' && (
         allUsers.length === 0 ? (
           <div className="border border-line py-20 text-center text-muted">가입한 회원이 없습니다.</div>
         ) : (
           <div>
-            <div className="flex justify-end mb-4">
-              <input value={userQuery} onChange={e => setUserQuery(e.target.value)} placeholder="이름·이메일 검색"
-                className="text-[13px] border border-line focus:border-ink outline-none px-3 py-2 bg-transparent w-56"/>
+            <div className="flex flex-wrap gap-2 justify-between items-center mb-4">
+              <div className="flex gap-1.5">
+                {[['all','전체'],['black','블랙리스트']].map(([k,label]) => (
+                  <button key={k} onClick={() => setUserFilter(k)}
+                    className={`text-[12px] px-3 py-1.5 border ${userFilter===k ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink'}`}>
+                    {label}{k==='black' && ` · ${blackCount}`}
+                  </button>
+                ))}
+              </div>
+              <input value={userQuery} onChange={e => setUserQuery(e.target.value)} placeholder="이름·이메일·메모 검색"
+                className="text-[13px] border border-line focus:border-ink outline-none px-3 py-2 bg-transparent w-full sm:w-64"/>
             </div>
             {(() => {
-              const q = userQuery.toLowerCase();
-              const list = allUsers.filter(u => q === '' || (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q));
-              if (list.length === 0) return <div className="border border-line py-16 text-center text-muted text-[14px]">검색 결과가 없습니다.</div>;
+              const q = userQuery.toLowerCase().trim();
+              const list = allUsers
+                .filter(u => userFilter !== 'black' || u.blacklisted)
+                .filter(u => q === ''
+                  || (u.name||'').toLowerCase().includes(q)
+                  || (u.email||'').toLowerCase().includes(q)
+                  || (u.memo||'').toLowerCase().includes(q)
+                  || (u.blackReason||'').toLowerCase().includes(q)
+                  || (q.replace(/\D/g,'').length >= 3 && normPhone(u.blackContact).includes(q.replace(/\D/g,''))));
+              if (list.length === 0) return <div className="border border-line py-16 text-center text-muted text-[14px]">{userFilter==='black' && q==='' ? '블랙리스트에 등록된 회원이 없습니다.' : '검색 결과가 없습니다.'}</div>;
               return (
                 <div className="border border-line divide-y divide-line">
-                  {list.map((u,i) => (
-                    <div key={i} className="flex items-center gap-3 md:gap-4 px-3 md:px-4 py-3">
-                      <span className="font-mono text-[11px] text-muted w-6 md:w-8 shrink-0">{String(i+1).padStart(2,'0')}</span>
-                      <span className="flex-1 min-w-0">
-                        <span className="text-[14px] block truncate">{u.name}</span>
-                        <span className="text-[13px] text-muted block truncate">{u.email}</span>
-                      </span>
-                      <span className={`text-[11px] px-2 py-1 shrink-0 border ${isAdminUser(u) ? 'border-ink text-ink' : 'border-line text-muted'}`}>
-                        {roleLabel(u)}
-                      </span>
-                      <span className="font-mono text-[12px] text-muted shrink-0 hidden sm:block">{u.joinedAt}</span>
+                  {list.map((u,i) => {
+                    const open = openUser === u.email;
+                    return (
+                    <div key={u.email} className={u.blacklisted ? 'bg-[#FFF5F5]' : ''}>
+                      <button onClick={() => toggleUserRow(u)}
+                        className="w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-3 text-left hover:bg-[#F7F7F7]">
+                        <span className="font-mono text-[11px] text-muted w-6 md:w-8 shrink-0">{String(i+1).padStart(2,'0')}</span>
+                        <span className="flex-1 min-w-0">
+                          <span className="flex items-center gap-2 min-w-0">
+                            <span className="text-[14px] truncate">{u.name}</span>
+                            {u.blacklisted && <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-red-600 text-white shrink-0">블랙리스트</span>}
+                            {(u.memo||'').trim() !== '' && <span className="text-[10px] font-mono px-1.5 py-0.5 border border-line text-muted shrink-0">메모</span>}
+                          </span>
+                          <span className="text-[13px] text-muted block truncate">{u.email}</span>
+                        </span>
+                        <span className={`text-[11px] px-2 py-1 shrink-0 border ${isAdminUser(u) ? 'border-ink text-ink' : 'border-line text-muted'}`}>
+                          {roleLabel(u)}
+                        </span>
+                        <span className="font-mono text-[12px] text-muted shrink-0 hidden sm:block">{u.joinedAt}</span>
+                        <Ico.plus className={`w-3.5 h-3.5 text-muted shrink-0 transition-transform ${open ? 'rotate-45' : ''}`}/>
+                      </button>
+
+                      {open && (
+                        <div className="px-4 md:px-6 pb-5 pt-1 space-y-4 fade-in">
+                          {/* 관리자 메모 */}
+                          <div>
+                            <div className="text-[12px] font-bold text-ink mb-1.5">관리자 메모 <span className="font-normal text-muted">(관리자만 볼 수 있어요)</span></div>
+                            <textarea value={uMemo} onChange={e => setUMemo(e.target.value)} rows={2}
+                              placeholder="예) 장비 반납 지연 이력 있음 / VIP 고객 / 신분증 확인 완료"
+                              className="w-full text-[13px] border border-line focus:border-ink outline-none px-3 py-2 bg-bg resize-y"/>
+                            <div className="flex justify-end mt-1.5">
+                              <button onClick={() => saveUserMemo(u)} disabled={uMemo.trim() === (u.memo||'').trim()}
+                                className="text-[12px] bg-ink text-bg px-4 py-1.5 hover-lift disabled:opacity-40 disabled:cursor-not-allowed">메모 저장</button>
+                            </div>
+                          </div>
+
+                          {/* 블랙리스트 */}
+                          <div className="border-t border-line pt-3">
+                            <div className="text-[12px] font-bold text-ink mb-1.5">블랙리스트</div>
+                            {u.blacklisted ? (
+                              <div className="border border-red-200 bg-bg px-3.5 py-3">
+                                <div className="text-[13px]">
+                                  <span className="font-bold text-red-600">블랙리스트 등록됨</span>
+                                  {u.blackAt && <span className="font-mono text-[12px] text-muted ml-2">{u.blackAt}</span>}
+                                </div>
+                                <div className="text-[13px] mt-1"><span className="text-muted">사유:</span> {u.blackReason || '—'}</div>
+                                {u.blackContact && <div className="text-[13px] mt-0.5"><span className="text-muted">연락처:</span> <span className="font-mono">{u.blackContact}</span></div>}
+                                <div className="flex justify-end mt-2">
+                                  <button onClick={() => removeBlacklist(u)}
+                                    className="text-[12px] border border-line hover:border-ink px-3 py-1.5">블랙리스트 해제</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  <input value={uReason} onChange={e => setUReason(e.target.value)} placeholder="사유 (예: 장비 미반납 · 사기)"
+                                    className="text-[13px] border border-line focus:border-ink outline-none px-3 py-2 bg-bg"/>
+                                  <input value={uContact} onChange={e => setUContact(e.target.value)} placeholder="연락처 (선택 — 문의 경고 매칭용)"
+                                    className="text-[13px] border border-line focus:border-ink outline-none px-3 py-2 bg-bg font-mono"/>
+                                </div>
+                                <div className="flex justify-end mt-2">
+                                  <button onClick={() => addBlacklist(u)}
+                                    className="text-[12px] bg-red-600 text-white px-4 py-1.5 hover-lift">블랙리스트 등록</button>
+                                </div>
+                              </div>
+                            )}
+                            <p className="text-[12px] text-muted mt-2">블랙리스트 회원은 로그인이 차단되고, 같은 성함·연락처로 들어온 문의에 ⚠ 경고가 표시됩니다.</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             })()}

@@ -270,6 +270,8 @@ export function App() {
     if (!u) return '가입되지 않은 이메일입니다.';
     const ok = await verifyPassword(pw, u.pw);
     if (!ok) return '비밀번호가 일치하지 않습니다.';
+    // 블랙리스트 계정은 로그인 차단
+    if (u.blacklisted) return '이용이 제한된 계정입니다. 자세한 내용은 카카오톡 채널로 문의해 주세요.';
     // 기존 평문 비밀번호면 해시로, role이 없던 계정이면 등급을 채워서 업그레이드
     const role = roleOf(u);
     const needsPwUpgrade = isLegacyPlain(u.pw);
@@ -280,6 +282,11 @@ export function App() {
     const sess = { name: u.name, email: u.email, role, joinedAt: u.joinedAt };
     setUser(sess); setAuthOpen(false); showToast(`${u.name}님, 다시 오셨네요!`);
     return true;
+  };
+
+  // 관리자 회원 관리: 메모·블랙리스트 등 회원 정보 갱신 (이메일 기준)
+  const updateUserInfo = (email, patch) => {
+    setUsers(prev => prev.map(u => u.email === email ? { ...u, ...patch } : u));
   };
   const logout = () => { setUser(null); setPage('home'); showToast('로그아웃되었습니다.'); };
 
@@ -443,7 +450,7 @@ export function App() {
             : !loaded
               ? <AdminUnavailable/>
               : <AdminPage equipment={equipment} setEquipment={setEquipment} orders={orders} setOrders={setOrders} updateOrderStatus={updateOrderStatus} rentals={rentals} setRentals={setRentals}
-                  users={users} categories={categories} setCategories={setCategories}
+                  users={users} onUpdateUser={updateUserInfo} categories={categories} setCategories={setCategories}
                   shareKey={shareKey} onRegenerateShareKey={regenerateShareKey}
                   homeBanner={homeBanner} setHomeBanner={setHomeBanner}
                   eventBanners={eventBanners} setEventBanners={setEventBanners}
