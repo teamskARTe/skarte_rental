@@ -85,13 +85,26 @@ const FALLBACK_ANON_KEY = 'eyJhbGciOi...';
 
 ---
 
-## ⚠️ 운영 전 보안 (선택, 나중에)
+## 🔒 쓰기 잠금 (보안 강화 — 권장)
 
-현재는 데모 단계라 site_data 쓰기가 열려 있어요. 운영이 본격화되면:
-1. Supabase **Authentication** 으로 관리자 계정 생성
-2. `0001_site_data.sql` 하단 주석의 정책 교체 SQL 실행 (관리자만 쓰기 가능하게)
+사이트 콘텐츠(장비·가격·배너·일정 등)를 **관리자만 수정 가능**하게 잠급니다.
+읽기는 그대로라 손님 사이트에는 영향이 없고, 손님 흐름(문의 접수·회원가입)도 계속 동작합니다.
 
-지금 단계에서는 이대로 두어도 사이트 운영에 문제 없습니다.
+**순서가 중요합니다:**
+
+1. Supabase 대시보드 → **Authentication → Users → Add user**
+   - 이메일: `team.skarte@gmail.com` (사이트 관리자 이메일과 동일)
+   - 비밀번호: **사이트 관리자 로그인 비밀번호와 동일하게**
+   - "Auto Confirm User" 체크
+2. 사이트가 관리자 로그인 시 Supabase Auth에 함께 로그인하는 버전인지 확인 (2026-10 이후 배포본이면 OK)
+3. `supabase/migrations/0004_site_data_write_lock.sql` 내용을 SQL Editor에서 실행
+4. 확인: 시크릿 창에서 손님 문의 접수 1건 + 관리자 재로그인 후 장비 수정 저장
+   - 저장 실패 빨간 배너(코드 42501)가 뜨면 → 1번의 계정·비밀번호가 사이트와 같은지 확인
+   - 문제 시 롤백 SQL이 같은 파일 하단 주석에 있습니다 (실행 즉시 원상복구)
+
+> 참고: `skeart_orders`(문의) · `skeart_users`(회원) · `skeart_rentals_v2`(예약)는
+> 손님 흐름이 직접 쓰기 때문에 이번 단계에서는 열려 있습니다.
+> 이 세 키까지 보호하려면 다음 단계인 **Supabase Auth 전면 이전**(`0002_auth_profiles.sql`)이 필요합니다.
 
 ---
 

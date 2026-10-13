@@ -274,6 +274,15 @@ export function App() {
     if (u.loginBlocked) return '이용이 제한된 계정입니다. 자세한 내용은 카카오톡 채널로 문의해 주세요.';
     // 기존 평문 비밀번호면 해시로, role이 없던 계정이면 등급을 채워서 업그레이드
     const role = roleOf(u);
+    // 관리자는 Supabase Auth에도 함께 로그인합니다.
+    // site_data 쓰기 잠금(RLS) 후에는 이 JWT가 있어야 관리자 저장이 가능합니다.
+    // (Supabase 대시보드 → Authentication → Users 에 같은 이메일·비밀번호 계정 필요)
+    if (isAdminUser(u) && sb) {
+      try {
+        const { error } = await sb.auth.signInWithPassword({ email: em, password: pw });
+        if (error) showToast('⚠ 저장 권한 로그인 실패 — 관리자 저장이 제한될 수 있어요');
+      } catch (e) { /* 네트워크 오류 등 — 저장 실패 시 화면 배너로 표시됩니다 */ }
+    }
     const needsPwUpgrade = isLegacyPlain(u.pw);
     if (needsPwUpgrade || !u.role) {
       const hashed = needsPwUpgrade ? await hashPassword(pw) : u.pw;
@@ -288,7 +297,11 @@ export function App() {
   const updateUserInfo = (email, patch) => {
     setUsers(prev => prev.map(u => u.email === email ? { ...u, ...patch } : u));
   };
-  const logout = () => { setUser(null); setPage('home'); showToast('로그아웃되었습니다.'); };
+  const logout = () => {
+    setUser(null); setPage('home'); showToast('로그아웃되었습니다.');
+    // 관리자 Supabase Auth 세션도 함께 종료
+    if (sb) { try { sb.auth.signOut(); } catch (e) {} }
+  };
 
   // ── 위시리스트 ──
   const toggleWish = (id) => {
