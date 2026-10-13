@@ -211,7 +211,8 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
 
   // ── 회원 관리 (메모 · 블랙리스트) ──
   const blackCount = allUsers.filter(u => u.blacklisted).length;
-  const [userFilter, setUserFilter] = useState('all'); // 'all' | 'black'
+  const blockedCount = allUsers.filter(u => u.loginBlocked).length;
+  const [userFilter, setUserFilter] = useState('all'); // 'all' | 'black' | 'blocked'
   const [openUser, setOpenUser] = useState(null);      // 펼쳐진 회원 이메일
   const [uMemo, setUMemo] = useState('');
   const [uReason, setUReason] = useState('');
@@ -223,7 +224,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   };
   const saveUserMemo = (u) => onUpdateUser && onUpdateUser(u.email, { memo: uMemo.trim() });
   const addBlacklist = (u) => {
-    if (!confirm(`${u.name || u.email}님을 블랙리스트에 등록할까요?\n등록하면 이 계정으로 로그인할 수 없습니다.`)) return;
+    if (!confirm(`${u.name || u.email}님을 블랙리스트에 등록할까요?\n(경고 표시용 — 로그인까지 막으려면 "로그인 차단"을 따로 눌러주세요)`)) return;
     onUpdateUser && onUpdateUser(u.email, {
       blacklisted: true, blackReason: uReason.trim(), blackContact: uContact.trim(),
       blackAt: new Date().toISOString().slice(0, 10),
@@ -232,6 +233,16 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const removeBlacklist = (u) => {
     if (!confirm(`${u.name || u.email}님을 블랙리스트에서 해제할까요?`)) return;
     onUpdateUser && onUpdateUser(u.email, { blacklisted: false });
+  };
+  // 로그인 차단 (블랙리스트와 별개로 동작)
+  const toggleLoginBlock = (u) => {
+    if (u.loginBlocked) {
+      if (!confirm(`${u.name || u.email}님의 로그인 차단을 해제할까요?`)) return;
+      onUpdateUser && onUpdateUser(u.email, { loginBlocked: false });
+    } else {
+      if (!confirm(`${u.name || u.email}님의 로그인을 차단할까요?\n차단하면 이 계정으로 로그인할 수 없습니다.`)) return;
+      onUpdateUser && onUpdateUser(u.email, { loginBlocked: true, blockAt: new Date().toISOString().slice(0, 10) });
+    }
   };
   // 문의의 성함 또는 연락처가 블랙리스트 회원과 일치하면 경고 표시용
   const normPhone = (s) => String(s || '').replace(/\D/g, '');
@@ -902,10 +913,10 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
           <div>
             <div className="flex flex-wrap gap-2 justify-between items-center mb-4">
               <div className="flex gap-1.5">
-                {[['all','전체'],['black','블랙리스트']].map(([k,label]) => (
+                {[['all','전체'],['black','블랙리스트'],['blocked','로그인 차단']].map(([k,label]) => (
                   <button key={k} onClick={() => setUserFilter(k)}
                     className={`text-[12px] px-3 py-1.5 border ${userFilter===k ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink'}`}>
-                    {label}{k==='black' && ` · ${blackCount}`}
+                    {label}{k==='black' && ` · ${blackCount}`}{k==='blocked' && ` · ${blockedCount}`}
                   </button>
                 ))}
               </div>
@@ -915,7 +926,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
             {(() => {
               const q = userQuery.toLowerCase().trim();
               const list = allUsers
-                .filter(u => userFilter !== 'black' || u.blacklisted)
+                .filter(u => userFilter === 'black' ? u.blacklisted : userFilter === 'blocked' ? u.loginBlocked : true)
                 .filter(u => q === ''
                   || (u.name||'').toLowerCase().includes(q)
                   || (u.email||'').toLowerCase().includes(q)
@@ -936,6 +947,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                           <span className="flex items-center gap-2 min-w-0">
                             <span className="text-[14px] truncate">{u.name}</span>
                             {u.blacklisted && <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-red-600 text-white shrink-0">블랙리스트</span>}
+                            {u.loginBlocked && <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-orange-500 text-white shrink-0">로그인 차단</span>}
                             {(u.memo||'').trim() !== '' && <span className="text-[10px] font-mono px-1.5 py-0.5 border border-line text-muted shrink-0">메모</span>}
                           </span>
                           <span className="text-[13px] text-muted block truncate">{u.email}</span>
@@ -991,7 +1003,29 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                                 </div>
                               </div>
                             )}
-                            <p className="text-[12px] text-muted mt-2">블랙리스트 회원은 로그인이 차단되고, 같은 성함·연락처로 들어온 문의에 ⚠ 경고가 표시됩니다.</p>
+                            <p className="text-[12px] text-muted mt-2">블랙리스트는 경고 표시용입니다 — 같은 성함·연락처로 들어온 문의에 ⚠ 경고가 붙어요. 접속까지 막으려면 아래 로그인 차단을 함께 사용하세요.</p>
+                          </div>
+
+                          {/* 로그인 차단 (블랙리스트와 별개) */}
+                          <div className="border-t border-line pt-3">
+                            <div className="text-[12px] font-bold text-ink mb-1.5">로그인 차단</div>
+                            {u.loginBlocked ? (
+                              <div className="border border-orange-200 bg-bg px-3.5 py-3 flex flex-wrap items-center justify-between gap-3">
+                                <span className="text-[13px]">
+                                  <span className="font-bold text-orange-600">차단 중</span>
+                                  {u.blockAt && <span className="font-mono text-[12px] text-muted ml-2">{u.blockAt}</span>}
+                                  <span className="text-muted"> — 이 계정으로 로그인할 수 없습니다.</span>
+                                </span>
+                                <button onClick={() => toggleLoginBlock(u)}
+                                  className="text-[12px] border border-line hover:border-ink px-3 py-1.5 shrink-0">차단 해제</button>
+                              </div>
+                            ) : (
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <span className="text-[13px] text-muted">이 계정의 로그인을 막습니다. 블랙리스트와 별개로 동작해요.</span>
+                                <button onClick={() => toggleLoginBlock(u)}
+                                  className="text-[12px] bg-orange-500 text-white px-4 py-1.5 hover-lift shrink-0">로그인 차단</button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}

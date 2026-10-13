@@ -270,8 +270,8 @@ export function App() {
     if (!u) return '가입되지 않은 이메일입니다.';
     const ok = await verifyPassword(pw, u.pw);
     if (!ok) return '비밀번호가 일치하지 않습니다.';
-    // 블랙리스트 계정은 로그인 차단
-    if (u.blacklisted) return '이용이 제한된 계정입니다. 자세한 내용은 카카오톡 채널로 문의해 주세요.';
+    // 로그인 차단 계정 (블랙리스트와 별개 플래그)
+    if (u.loginBlocked) return '이용이 제한된 계정입니다. 자세한 내용은 카카오톡 채널로 문의해 주세요.';
     // 기존 평문 비밀번호면 해시로, role이 없던 계정이면 등급을 채워서 업그레이드
     const role = roleOf(u);
     const needsPwUpgrade = isLegacyPlain(u.pw);
