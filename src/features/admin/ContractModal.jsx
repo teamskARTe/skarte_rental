@@ -90,22 +90,20 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
   const today = new Date();
   const todayFill = `${today.getFullYear()} . ${String(today.getMonth()+1).padStart(2,'0')} . ${String(today.getDate()).padStart(2,'0')}`;
 
-  // 장비 표: 항목 + 빈 줄 채움 (최소 6줄 — 한 장 인쇄에 맞춤)
-  const ROWS_MIN = 6;
+  // 장비 표: 항목 + 빈 줄 채움 (최소 15줄 — 양식과 동일)
+  const ROWS_MIN = 15;
   const blankRows = Math.max(0, ROWS_MIN - items.length);
 
-  // 대여 약관 요약 (10개 항목)
+  // 핵심 계약사항 (7개 조항 + 전문 약관 적용 안내) — 2열 × 4행으로 표시
   const TERMS = [
-    ['1. 인수·사전 테스트', '출고 전 외관·구성품·작동 및 필요한 기록·재생을 확인하고 이상은 즉시 고지·기록합니다.'],
-    ['2. 사용·호환성', '사용법·설정·호환성은 대여자 책임이며 사용 미숙·설정 오류로 인한 결과는 책임지지 않습니다.'],
-    ['3. 메모리·데이터', '기록매체 확인은 대여자 책임이며 기록 실패·파일 유실·재촬영 등 간접손해는 책임지지 않습니다.'],
-    ['4. 관리·고위험 환경', '레이저·강광원·우천·침수·모래·분진·염분 등으로 인한 손상은 대여자 책임입니다.'],
-    ['5. 파손·분실·도난', '귀책 파손은 수리비, 전손·분실은 시가·상태·대체비용을 고려한 합리적 손해액을 배상합니다.'],
-    ['6. 사고 발생 시', '이상·사고 시 즉시 사용을 중단하고 연락하며 계속 사용하여 확대된 손해는 대여자 책임입니다.'],
-    ['7. 반납·연장·지연', '사전 고지·승인 없이 예정 반납시각을 6시간 초과하면 장비 미반납으로 간주하며, 회수 및 필요 시 고소·고발 등 민·형사상 조치를 취할 수 있습니다.'],
-    ['8. 재대여·무단조치', '제3자 재대여·양도·담보 및 승인 없는 분해·개조·수리를 금지합니다.'],
-    ['9. 출고불가 시', '불가피한 고장·사고 시 동급 대체장비 제공 또는 미제공 장비 대여료 환불을 원칙으로 합니다.'],
-    ['10. 기타', '예약·취소·환불·퀵 운송 등은 스케아트 렌탈 운영정책·별도 합의 및 관계 법령에 따릅니다.'],
+    ['01 장비 인수·관리', '출고 전 구성품·외관·작동 상태를 확인합니다. 대여 중 고객 귀책으로 발생한 파손·분실은 실제 수리비 또는 합리적인 손해액을 배상합니다.'],
+    ['02 신원 확인·금지행위', '정확한 신원과 연락처를 제공해야 합니다. 장비의 무단 양도·재대여·판매·전당·담보 제공·임의 처분을 금지합니다.'],
+    ['03 예약금·대여료', '예약금 100,000원은 정상 반납 및 정산 후 반환하며, 미납금·손해액 등이 있으면 적법한 범위에서 정산할 수 있습니다.'],
+    ['04 반납·연장·연체료', '약정 시각까지 반납하며 연장은 사전 승인·결제가 필요합니다. 미승인 지연의 연체료는 할인 전 대여료를 기준으로 산정합니다.'],
+    ['05 지연 시 법적 대응', '무단 반납 지연 6시간 초과 시 내용증명 작성·발송 및 반환을 요구할 수 있습니다. 24시간 초과 시 사실관계에 따라 형사 고소 및 금전채권 지급명령을 신청할 수 있습니다.'],
+    ['06 위치추적·회수', '장비 보호 및 도난·분실 예방을 위해 일부 장비 가방에 위치추적장치를 운영할 수 있습니다. 관련 법령에 따라 고지·동의 및 필요한 범위에서만 위치정보를 이용합니다.'],
+    ['07 계약 위반 사실 고지', '중대한 계약 위반이 발생한 경우 관계 법령을 준수하고 개인 식별이 불가능한 범위에서 객관적 사실을 사업장 내부에만 공지할 수 있습니다.'],
+    ['전문 약관의 적용', '본 요약은 주요 사항 안내이며, 별도로 제공되는 「장비대여 계약사항 전문」 제1조~제15조가 계약의 일부를 구성합니다. 상충 시 관계 법령과 개별 합의에 따릅니다.'],
   ];
 
   return createPortal(
@@ -171,8 +169,9 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
 
           {/* 대여 장비 / 직원 관리 */}
           <div className="font-bold text-[12px] mb-1">대여 장비 / 직원 관리</div>
-          {/* 장비 표 (전체 폭) — 아래 직원 작성란과 상하 배치해 한 장 인쇄에 맞춥니다 */}
-          <table className="w-full table-fixed border border-line border-collapse break-words mb-2">
+          <div className="flex gap-2 items-stretch mb-4">
+            {/* 장비 표 (좌) */}
+            <table className="flex-1 min-w-0 w-full table-fixed border border-line border-collapse break-words self-start">
               <thead>
                 <tr className="bg-[#F4F6F9] text-muted">
                   <th className="border border-line px-1.5 py-1 w-8 font-normal">No.</th>
@@ -217,62 +216,62 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
               </tbody>
             </table>
 
-          {/* 직원 작성란 — 렌탈/반납 확인을 좌우 2단으로 배치 (세로 길이 절반) */}
-          <div className="border border-line text-[9.5px] mb-4">
-            <div className="bg-ink text-bg text-center font-bold py-1 text-[10.5px] tracking-wider">직원 작성란 <span className="font-mono text-[8.5px]">STAFF ONLY</span></div>
-            <div className="grid grid-cols-2">
-              {/* 렌탈 시 확인 */}
-              <div className="border-r border-line">
-                <div className="bg-[#EDEFF3] px-2 py-1 font-bold border-b border-line">렌탈 시 확인</div>
-                <SRow label="렌탈 일시">{order.startDate ? <span className="font-mono">{fmtDT(order.startDate, order.startTime)}</span> : <Fill w="95%"/>}</SRow>
-                <SRow label="렌탈 담당자"><Fill w="95%"/></SRow>
-                <SRow label="렌탈 지점">{order.pickupBranch ? branchName(order.pickupBranch) : <Fill w="95%"/>}</SRow>
-                <SRow label="출고 가방"><Fill w="42px" center/> 개</SRow>
-                <SRow label="예약금">100,000원 <label className="inline-flex items-center gap-1 ml-1"><input type="checkbox" className="w-2.5 h-2.5"/>확인</label></SRow>
-                <SRow label="정상금액"><span className="font-mono font-bold">{won(listSum)}</span></SRow>
-                <SRow label="할인">
-                  {discountTotal > 0 ? (
-                    <>
-                      <span className="font-mono font-bold">- {won(discountTotal)}</span>
-                      <span className="block text-[8px] text-muted leading-tight">{discountParts}</span>
-                    </>
-                  ) : <>종류 <Fill w="52px"/> <Fill w="30px" center/>% / <Fill w="52px" center/>원</>}
-                </SRow>
-                <SRow label="최종금액"><span className="font-mono font-bold">{won(total)}</span> <span className="text-[8px] text-muted">(VAT 포함 · 부가세 {won(vat)})</span></SRow>
-                <SRow label="결제방식"><Chk label="카드"/><Chk label="현금"/><Chk label="계좌이체"/></SRow>
-                <SRow label="증빙"><Chk label="현금영수증"/><Chk label="세금계산서"/><Chk label="없음"/></SRow>
-                <div className="px-2 py-[5px] text-[8.5px]">
-                  <Chk label="수량·구성품"/><Chk label="외관"/><Chk label="작동"/><Chk label="메모리/포맷"/><Chk label="테스트 촬영·재생"/>
-                </div>
+            {/* 직원 작성란 (우) */}
+            <div className="w-[248px] shrink-0 border border-line text-[9.5px]">
+              <div className="bg-ink text-bg text-center font-bold py-1.5 text-[10.5px] tracking-wider">직원 작성란 <span className="font-mono text-[8.5px]">STAFF ONLY</span></div>
+
+              <div className="bg-[#EDEFF3] px-2 py-1 font-bold border-b border-line">렌탈 시 확인</div>
+              <SRow label="렌탈 일시">{order.startDate ? <span className="font-mono">{fmtDT(order.startDate, order.startTime)}</span> : <Fill w="95%"/>}</SRow>
+              <SRow label="렌탈 담당자"><Fill w="95%"/></SRow>
+              <SRow label="렌탈 지점">{order.pickupBranch ? branchName(order.pickupBranch) : <Fill w="95%"/>}</SRow>
+              <SRow label="출고 가방"><Fill w="42px" center/> 개</SRow>
+              <SRow label="예약금">100,000원 <label className="inline-flex items-center gap-1 ml-1"><input type="checkbox" className="w-2.5 h-2.5"/>확인</label></SRow>
+              <SRow label="정상금액"><span className="font-mono font-bold">{won(listSum)}</span></SRow>
+              <SRow label="할인">
+                {discountTotal > 0 ? (
+                  <>
+                    <span className="font-mono font-bold">- {won(discountTotal)}</span>
+                    <span className="block text-[8px] text-muted leading-tight">{discountParts}</span>
+                  </>
+                ) : <>종류 <Fill w="52px"/> <Fill w="30px" center/>% / <Fill w="52px" center/>원</>}
+              </SRow>
+              <SRow label="최종금액"><span className="font-mono font-bold">{won(total)}</span> <span className="text-[8px] text-muted">(VAT 포함 · 부가세 {won(vat)})</span></SRow>
+              <SRow label="결제방식"><Chk label="카드"/><Chk label="현금"/><Chk label="계좌이체"/></SRow>
+              <SRow label="증빙"><Chk label="현금영수증"/><Chk label="세금계산서"/><Chk label="없음"/></SRow>
+              <div className="px-2 py-[5px] border-b border-line text-[8.5px]">
+                <Chk label="수량·구성품"/><Chk label="외관"/><Chk label="작동"/><Chk label="메모리/포맷"/><Chk label="테스트 촬영·재생"/>
               </div>
-              {/* 반납 시 확인 + 특이사항 */}
-              <div>
-                <div className="bg-[#EDEFF3] px-2 py-1 font-bold border-b border-line">반납 시 확인</div>
-                <SRow label="반납 예정">{order.returnDate ? <span className="font-mono">{fmtDT(order.returnDate, order.returnTime)}</span> : <Fill w="95%"/>}</SRow>
-                <SRow label="실제 반납"><Fill w="95%" ph="20    .    .        :"/></SRow>
-                <SRow label="반납 담당자"><Fill w="95%"/></SRow>
-                <SRow label="반납 지점">{order.returnBranch ? branchName(order.returnBranch) : <Fill w="95%"/>}</SRow>
-                <SRow label="반납 가방"><Fill w="42px" center/> 개</SRow>
-                <SRow label="추가금액"><Fill w="70%" center/> 원</SRow>
-                <SRow label="반납 계좌">은행 <Fill w="52px"/> / 계좌 <Fill w="110px"/></SRow>
-                <SRow label="예금주"><Fill w="95%"/></SRow>
-                <div className="px-2 py-[5px] border-b border-line text-[8.5px]">
-                  <Chk label="수량·구성품"/><Chk label="외관"/><Chk label="작동"/><Chk label="메모리"/><Chk label="가방"/><Chk label="이상 유무"/>
-                </div>
-                <div className="bg-[#EDEFF3] px-2 py-1 font-bold border-b border-line">특이사항 (직원 기재)</div>
-                <textarea rows={2} className="w-full px-2 py-1 outline-none bg-transparent resize-none text-[9.5px]"/>
+
+              <div className="bg-[#EDEFF3] px-2 py-1 font-bold border-b border-line">반납 시 확인</div>
+              <SRow label="반납 예정">{order.returnDate ? <span className="font-mono">{fmtDT(order.returnDate, order.returnTime)}</span> : <Fill w="95%"/>}</SRow>
+              <SRow label="실제 반납"><Fill w="95%" ph="20    .    .        :"/></SRow>
+              <SRow label="반납 담당자"><Fill w="95%"/></SRow>
+              <SRow label="반납 지점">{order.returnBranch ? branchName(order.returnBranch) : <Fill w="95%"/>}</SRow>
+              <SRow label="반납 가방"><Fill w="42px" center/> 개</SRow>
+              <SRow label="추가금액"><Fill w="70%" center/> 원</SRow>
+              <SRow label="반납 계좌">은행 <Fill w="52px"/> / 계좌 <Fill w="110px"/></SRow>
+              <SRow label="예금주"><Fill w="95%"/></SRow>
+              <div className="px-2 py-[5px] border-b border-line text-[8.5px]">
+                <Chk label="수량·구성품"/><Chk label="외관"/><Chk label="작동"/><Chk label="메모리"/><Chk label="가방"/><Chk label="이상 유무"/>
               </div>
+
+              <div className="bg-[#EDEFF3] px-2 py-1 font-bold border-b border-line">특이사항 (직원 기재)</div>
+              <textarea rows={3} className="w-full px-2 py-1.5 outline-none bg-transparent resize-none text-[9.5px]"/>
             </div>
           </div>
 
-          {/* 대여 약관 */}
-          <div className="font-bold text-[12px] mb-1">대여 약관 <span className="font-normal text-muted text-[9px]">※ 주요 내용 요약</span></div>
+          {/* 핵심 계약사항 */}
+          <div className="font-bold text-[12px] mb-1">핵심 계약사항 <span className="font-normal text-muted text-[9px]">※ 계약 전 전문 15개 조항 제공·열람 및 주요 내용 설명</span></div>
           <table className="w-full border border-line border-collapse mb-3 text-[8.5px] leading-[1.5]">
             <tbody>
-              {Array.from({ length: 5 }).map((_, i) => (
+              {Array.from({ length: 4 }).map((_, i) => (
                 <tr key={i}>
-                  <td className="border border-line px-2 py-1 w-1/2 align-top"><b>{TERMS[i][0]}</b> {TERMS[i][1]}</td>
-                  <td className="border border-line px-2 py-1 w-1/2 align-top"><b>{TERMS[i+5][0]}</b> {TERMS[i+5][1]}</td>
+                  {[TERMS[i*2], TERMS[i*2+1]].map(([t, d], j) => (
+                    <td key={j} className="border border-line px-2 py-1.5 w-1/2 align-top">
+                      <span className="block font-bold text-[9px] mb-0.5">{t}</span>
+                      {d}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
@@ -284,8 +283,16 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
             <div className="px-3 py-2 border-b border-line text-center text-[9.5px]">
               인수 전 체크&nbsp;&nbsp;<Chk label="구성품 확인"/><Chk label="외관 상태"/><Chk label="작동 상태"/><Chk label="메모리·포맷"/><Chk label="테스트 촬영·재생"/>
             </div>
-            <div className="px-3 py-2.5 border-b border-line text-center">
-              본인은 위 장비의 상태와 대여 약관을 확인하고 장비를 인수하였습니다.&nbsp;&nbsp;<Fill w="130px" def={todayFill} center/>
+            <div className="px-3 py-2.5 border-b border-line flex items-center gap-3">
+              <div className="flex-1 min-w-0 leading-relaxed">
+                본인은 장비 및 구성품을 인수 전 확인하고, 별도 「장비대여 계약사항 전문」(제1조~제15조)을 계약 전에
+                제공받거나 열람할 기회를 부여받았으며, 주요 내용을 설명받고 본 계약의 일부로 적용됨에 동의합니다.
+                <span className="block mt-1"><Fill w="130px" def={todayFill} center/></span>
+              </div>
+              {/* 동의 서명(날인) 박스 */}
+              <div className="w-[88px] h-[52px] shrink-0 border border-line flex items-center justify-center text-muted/50 text-[11px]">
+                동의합니다
+              </div>
             </div>
             <div className="px-3 py-2.5 flex flex-wrap items-center justify-center gap-x-10 gap-y-2">
               <span>고객 성명 <Fill w="150px" def={order.name || ''}/> <span className="text-muted">(서명)</span></span>
