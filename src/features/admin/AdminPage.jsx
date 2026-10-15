@@ -958,10 +958,12 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                             {u.loginBlocked && <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-orange-500 text-white shrink-0">로그인 차단</span>}
                             {(u.memo||'').trim() !== '' && <span className="text-[10px] font-mono px-1.5 py-0.5 border border-line text-muted shrink-0">메모</span>}
                           </span>
-                          <span className="text-[13px] text-muted block truncate">
-                            {u.email}
-                            {u.phone && <span className="font-mono ml-2 text-ink/70">{u.phone}</span>}
+                          <span className="block truncate text-[13px] mt-0.5">
+                            {u.phone
+                              ? <span className="font-mono text-ink/80">{u.phone}</span>
+                              : <span className="text-muted/60">전화번호 등록 필요</span>}
                           </span>
+                          <span className="text-[13px] text-muted block truncate">{u.email}</span>
                         </span>
                         <span className={`text-[11px] px-2 py-1 shrink-0 border ${isAdminUser(u) ? 'border-ink text-ink' : 'border-line text-muted'}`}>
                           {roleLabel(u)}
