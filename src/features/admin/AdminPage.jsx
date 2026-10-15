@@ -217,12 +217,17 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const [uMemo, setUMemo] = useState('');
   const [uReason, setUReason] = useState('');
   const [uContact, setUContact] = useState('');
+  const [uPhone, setUPhone] = useState('');
   const toggleUserRow = (u) => {
     if (openUser === u.email) { setOpenUser(null); return; }
     setOpenUser(u.email);
-    setUMemo(u.memo || ''); setUReason(u.blackReason || ''); setUContact(u.blackContact || '');
+    setUMemo(u.memo || ''); setUReason(u.blackReason || '');
+    setUPhone(u.phone || '');
+    // 블랙리스트 연락처 칸: 저장된 값이 없으면 회원 전화번호를 미리 채움
+    setUContact(u.blackContact || u.phone || '');
   };
   const saveUserMemo = (u) => onUpdateUser && onUpdateUser(u.email, { memo: uMemo.trim() });
+  const saveUserPhone = (u) => onUpdateUser && onUpdateUser(u.email, { phone: uPhone.trim() });
   const addBlacklist = (u) => {
     if (!confirm(`${u.name || u.email}님을 블랙리스트에 등록할까요?\n(경고 표시용 — 로그인까지 막으려면 "로그인 차단"을 따로 눌러주세요)`)) return;
     onUpdateUser && onUpdateUser(u.email, {
@@ -246,10 +251,12 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   };
   // 문의의 성함 또는 연락처가 블랙리스트 회원과 일치하면 경고 표시용
   const normPhone = (s) => String(s || '').replace(/\D/g, '');
-  const blackMatch = (o) => allUsers.some(u => u.blacklisted && (
-    (u.name && o.name && u.name.trim() === String(o.name).trim()) ||
-    (normPhone(u.blackContact).length >= 8 && normPhone(u.blackContact) === normPhone(o.contact))
-  ));
+  const blackMatch = (o) => allUsers.some(u => {
+    if (!u.blacklisted) return false;
+    const phones = [u.blackContact, u.phone].map(normPhone).filter(p => p.length >= 8);
+    return (u.name && o.name && u.name.trim() === String(o.name).trim())
+      || phones.some(p => p === normPhone(o.contact));
+  });
 
   // ── 콘텐츠 임시(draft) 상태: 저장 버튼을 눌러야 실제 반영 ──
   const [draft, setDraft] = useState({ homeBanner, eventBanners, brands, works, discounts, notices, sets, bestIds });
@@ -932,7 +939,8 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                   || (u.email||'').toLowerCase().includes(q)
                   || (u.memo||'').toLowerCase().includes(q)
                   || (u.blackReason||'').toLowerCase().includes(q)
-                  || (q.replace(/\D/g,'').length >= 3 && normPhone(u.blackContact).includes(q.replace(/\D/g,''))));
+                  || (q.replace(/\D/g,'').length >= 3 &&
+                      (normPhone(u.blackContact).includes(q.replace(/\D/g,'')) || normPhone(u.phone).includes(q.replace(/\D/g,'')))));
               if (list.length === 0) return <div className="border border-line py-16 text-center text-muted text-[14px]">{userFilter==='black' && q==='' ? '블랙리스트에 등록된 회원이 없습니다.' : '검색 결과가 없습니다.'}</div>;
               return (
                 <div className="border border-line divide-y divide-line">
@@ -950,7 +958,10 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                             {u.loginBlocked && <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-orange-500 text-white shrink-0">로그인 차단</span>}
                             {(u.memo||'').trim() !== '' && <span className="text-[10px] font-mono px-1.5 py-0.5 border border-line text-muted shrink-0">메모</span>}
                           </span>
-                          <span className="text-[13px] text-muted block truncate">{u.email}</span>
+                          <span className="text-[13px] text-muted block truncate">
+                            {u.email}
+                            {u.phone && <span className="font-mono ml-2 text-ink/70">{u.phone}</span>}
+                          </span>
                         </span>
                         <span className={`text-[11px] px-2 py-1 shrink-0 border ${isAdminUser(u) ? 'border-ink text-ink' : 'border-line text-muted'}`}>
                           {roleLabel(u)}
@@ -961,6 +972,17 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
 
                       {open && (
                         <div className="px-4 md:px-6 pb-5 pt-1 space-y-4 fade-in">
+                          {/* 전화번호 */}
+                          <div>
+                            <div className="text-[12px] font-bold text-ink mb-1.5">전화번호 <span className="font-normal text-muted">(가입·문의 시 자동 등록 — 직접 수정 가능)</span></div>
+                            <div className="flex gap-2">
+                              <input value={uPhone} onChange={e => setUPhone(e.target.value)} placeholder="010-0000-0000"
+                                className="flex-1 min-w-0 text-[13px] border border-line focus:border-ink outline-none px-3 py-2 bg-bg font-mono"/>
+                              <button onClick={() => saveUserPhone(u)} disabled={uPhone.trim() === (u.phone||'').trim()}
+                                className="text-[12px] bg-ink text-bg px-4 py-1.5 hover-lift disabled:opacity-40 disabled:cursor-not-allowed shrink-0">저장</button>
+                            </div>
+                          </div>
+
                           {/* 관리자 메모 */}
                           <div>
                             <div className="text-[12px] font-bold text-ink mb-1.5">관리자 메모 <span className="font-normal text-muted">(관리자만 볼 수 있어요)</span></div>

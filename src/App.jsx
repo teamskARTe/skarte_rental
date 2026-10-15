@@ -251,21 +251,22 @@ export function App() {
   // ── 인증 ──
   // 클라우드 연결 시: Supabase Auth 사용 (비밀번호는 서버 bcrypt 보관 — 클라이언트에 안 내려옴)
   // 미연결 시: 기존 로컬 방식(skeart_users + 해시) 유지
-  const signup = async ({ name, email, pw }) => {
+  const signup = async ({ name, email, pw, phone = '' }) => {
     const em = email.toLowerCase();
+    const ph = String(phone).trim();
     if (em === ADMIN_EMAIL.toLowerCase()) return '이미 가입된 이메일입니다.';
     if (!sb) {
       // 로컬 모드 폴백 (기존 방식)
       if (users.find(u => u.email === em)) return '이미 가입된 이메일입니다.';
       const hashed = await hashPassword(pw);
-      const u = { name: name.trim(), email: em, pw: hashed, role: ROLE_USER, joinedAt: new Date().toISOString().slice(0,10) };
+      const u = { name: name.trim(), email: em, phone: ph, pw: hashed, role: ROLE_USER, joinedAt: new Date().toISOString().slice(0,10) };
       setUsers([...users, u]);
       setUser({ name: u.name, email: u.email, role: u.role, joinedAt: u.joinedAt });
       setAuthOpen(false); showToast(`${u.name}님, 환영합니다!`);
       return true;
     }
     const { data, error } = await sb.auth.signUp({
-      email: em, password: pw, options: { data: { name: name.trim() } },
+      email: em, password: pw, options: { data: { name: name.trim(), phone: ph } },
     });
     if (error) {
       if (/already registered/i.test(error.message)) return '이미 가입된 이메일입니다.';
@@ -343,7 +344,7 @@ export function App() {
     let on = true;
     (async () => {
       await sb.auth.getSession(); // 새로고침 직후 세션 복원 대기
-      const { data: ps } = await sb.from('profiles').select('email,name,joined_at');
+      const { data: ps } = await sb.from('profiles').select('email,name,joined_at,phone');
       const { data: ns } = await sb.from('admin_notes').select('*');
       if (!on) return;
       if (ps) setProfiles(ps);
@@ -359,6 +360,7 @@ export function App() {
     const cur = adminNotes[em] || {};
     const next = {
       email: em,
+      phone:         'phone'       in patch ? patch.phone       : (cur.phone || ''),
       memo:          'memo'        in patch ? patch.memo        : (cur.memo || ''),
       blacklisted:   'blacklisted' in patch ? !!patch.blacklisted : !!cur.blacklisted,
       black_reason:  'blackReason' in patch ? patch.blackReason : (cur.black_reason || ''),
@@ -384,11 +386,13 @@ export function App() {
       ...(byEmail.get(p.email) || {}),
       name: p.name || (byEmail.get(p.email)?.name) || '', email: p.email,
       joinedAt: p.joined_at || byEmail.get(p.email)?.joinedAt || '',
+      phone: p.phone || byEmail.get(p.email)?.phone || '',
     }));
     Object.entries(adminNotes).forEach(([em, n]) => {
       const base = byEmail.get(em) || { email: em, name: '' };
       byEmail.set(em, {
         ...base,
+        phone: n.phone || base.phone || '', // 관리자가 직접 입력한 번호 우선
         memo: n.memo || '', blacklisted: !!n.blacklisted,
         blackReason: n.black_reason || '', blackContact: n.black_contact || '', blackAt: n.black_at || '',
         loginBlocked: !!n.login_blocked, blockAt: n.block_at || '',
@@ -416,8 +420,19 @@ export function App() {
     startTime, returnDate, returnTime, pickupBranch, returnBranch, vat,
     couponLabel, couponSaved, mode = 'new', editRefNo = '' }) => {
     const norm = (s) => (s || '').trim();
+    // 로그인 회원이 문의하면, 입력한 연락처를 본인 프로필 전화번호로 자동 연결합니다.
+    // (관리자 회원 관리에서 이름·번호로 바로 찾을 수 있게)
+    if (sb && user?.email && norm(contact).replace(/\D/g, '').length >= 10) {
+      (async () => {
+        try {
+          const { data: au } = await sb.auth.getUser();
+          if (au?.user) await sb.from('profiles').update({ phone: norm(contact) }).eq('id', au.user.id);
+        } catch (e) { /* 프로필 연동 실패는 접수에 영향 없음 */ }
+      })();
+    }
     const fields = {
       type,
+      userEmail: user?.email || '',   // 로그인 회원 문의면 계정 연결용으로 저장
       items: items || [],
       total: total || 0,
       startDate: startDate || '',

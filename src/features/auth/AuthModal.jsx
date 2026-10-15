@@ -3,7 +3,7 @@ import { Ico } from '../../components/Ico';
 
 export function AuthModal({ onClose, onLogin, onSignup }) {
   const [mode, setMode] = useState('login');
-  const [form, setForm] = useState({ name:'', email:'', pw:'' });
+  const [form, setForm] = useState({ name:'', email:'', pw:'', phone:'' });
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -18,7 +18,8 @@ export function AuthModal({ onClose, onLogin, onSignup }) {
     if (mode === 'signup') {
       if (!form.name.trim()) return setErr('이름을 입력해 주세요.');
       if (!/^[^@]+@[^@]+\.[^@]+$/.test(form.email)) return setErr('올바른 이메일을 입력해 주세요.');
-      if (form.pw.length < 4) return setErr('비밀번호는 4자 이상이어야 합니다.');
+      if (form.phone.replace(/\D/g, '').length < 10) return setErr('연락처를 정확히 입력해 주세요. (예: 010-0000-0000)');
+      if (form.pw.length < 6) return setErr('비밀번호는 6자 이상이어야 합니다.');
       const r = await onSignup(form);
       if (r !== true) return setErr(r);
     } else {
@@ -40,11 +41,18 @@ export function AuthModal({ onClose, onLogin, onSignup }) {
 
           <div className="space-y-3">
             {mode==='signup' && (
-              <div>
-                <label className="text-[12px] text-muted">이름</label>
-                <input value={form.name} onChange={e => setForm({...form, name:e.target.value})}
-                  className="w-full border border-line focus:border-ink outline-none px-3 py-3 text-[14px] mt-1 bg-transparent" placeholder="홍길동"/>
-              </div>
+              <>
+                <div>
+                  <label className="text-[12px] text-muted">이름</label>
+                  <input value={form.name} onChange={e => setForm({...form, name:e.target.value})}
+                    className="w-full border border-line focus:border-ink outline-none px-3 py-3 text-[14px] mt-1 bg-transparent" placeholder="홍길동"/>
+                </div>
+                <div>
+                  <label className="text-[12px] text-muted">연락처</label>
+                  <input type="tel" value={form.phone} onChange={e => setForm({...form, phone:e.target.value})}
+                    className="w-full border border-line focus:border-ink outline-none px-3 py-3 text-[14px] mt-1 bg-transparent font-mono" placeholder="010-0000-0000"/>
+                </div>
+              </>
             )}
             <div>
               <label className="text-[12px] text-muted">이메일</label>
