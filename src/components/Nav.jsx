@@ -87,38 +87,38 @@ export function Nav({ page, setPage, setCategory, cartCount, onCartOpen, user, o
 
         <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
           <button onClick={() => setSearchOpen(o => !o)}
-            className={`border px-2.5 md:px-3 py-2 hover-lift ${searchOpen ? 'bg-ink text-bg border-ink' : 'border-ink'}`}
+            className={`md:border px-2.5 md:px-3 py-2 hover-lift ${searchOpen ? 'bg-ink text-bg md:border-ink' : 'md:border-ink'}`}
             aria-label="장비 검색">
             <Ico.search className="w-3.5 h-3.5"/>
           </button>
           {isAdmin && (
             <button onClick={() => setPage('admin')}
-              className={`px-2.5 md:px-4 py-2 text-[13px] tracking-tight inline-flex items-center gap-2 hover-lift border ${page==='admin' ? 'bg-ink text-bg border-ink' : 'border-ink'}`}>
+              className={`px-2.5 md:px-4 py-2 text-[13px] tracking-tight inline-flex items-center gap-2 hover-lift md:border ${page==='admin' ? 'bg-ink text-bg md:border-ink' : 'md:border-ink'}`}>
               관리자
             </button>
           )}
           {user ? (
             <button onClick={() => setPage('mypage')}
-              className={`px-2.5 md:px-4 py-2 text-[13px] tracking-tight inline-flex items-center gap-2 hover-lift border ${page==='mypage' ? 'bg-ink text-bg border-ink' : 'border-ink'}`}>
+              className={`px-2.5 md:px-4 py-2 text-[13px] tracking-tight inline-flex items-center gap-2 hover-lift md:border ${page==='mypage' ? 'bg-ink text-bg md:border-ink' : 'md:border-ink'}`}>
               <Ico.user className="w-3.5 h-3.5"/>
               <span className="hidden sm:inline">{user.name}</span>
             </button>
           ) : (
             <button onClick={onAuthOpen}
-              className="px-2.5 md:px-4 py-2 text-[13px] tracking-tight inline-flex items-center gap-2 hover-lift border border-ink">
+              className="px-2.5 md:px-4 py-2 text-[13px] tracking-tight inline-flex items-center gap-2 hover-lift md:border md:border-ink">
               <Ico.user className="w-3.5 h-3.5"/>
               <span className="hidden sm:inline">로그인</span>
             </button>
           )}
           <button onClick={onCartOpen}
-            className="relative border border-ink px-2.5 md:px-4 py-2 text-[13px] tracking-tight inline-flex items-center gap-1.5 md:gap-2 hover-lift">
+            className="relative md:border md:border-ink px-2.5 md:px-4 py-2 text-[13px] tracking-tight inline-flex items-center gap-1.5 md:gap-2 hover-lift">
             <Ico.bag className="w-3.5 h-3.5"/>
             <span className="hidden sm:inline">장바구니</span>
             <span className="font-mono text-[13px]">[{String(cartCount).padStart(2,'0')}]</span>
           </button>
           {/* 모바일 햄버거 */}
           <button onClick={() => setMobileMenu(o => !o)}
-            className="md:hidden border border-ink p-2 hover-lift" aria-label="메뉴">
+            className="md:hidden p-2 hover-lift" aria-label="메뉴">
             {mobileMenu ? <Ico.close className="w-4 h-4"/> : <Ico.menu className="w-4 h-4"/>}
           </button>
         </div>
