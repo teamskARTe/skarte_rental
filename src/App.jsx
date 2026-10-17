@@ -355,11 +355,18 @@ export function App() {
 
   const updateUserInfo = async (email, patch) => {
     const em = String(email).toLowerCase();
-    if (!sb) { setUsers(prev => prev.map(u => u.email === email ? { ...u, ...patch } : u)); return; }
+    if (!sb) {
+      // 로컬 모드: 기존 회원이면 갱신, 없으면(비회원 직접 등록) 새 항목 추가
+      setUsers(prev => prev.some(u => u.email === email)
+        ? prev.map(u => u.email === email ? { ...u, ...patch } : u)
+        : [...prev, { email, name: patch.name || '', ...patch }]);
+      return;
+    }
     // 기존 메모와 병합해 전체 행으로 upsert (snake_case 변환)
     const cur = adminNotes[em] || {};
     const next = {
       email: em,
+      name:          'name'        in patch ? patch.name        : (cur.name || ''),
       phone:         'phone'       in patch ? patch.phone       : (cur.phone || ''),
       memo:          'memo'        in patch ? patch.memo        : (cur.memo || ''),
       blacklisted:   'blacklisted' in patch ? !!patch.blacklisted : !!cur.blacklisted,
@@ -377,6 +384,15 @@ export function App() {
     setAdminNotes(prev => ({ ...prev, [em]: next }));
   };
 
+  // 비회원 직접 등록 항목(블랙리스트 등) 삭제
+  const deleteUserNote = async (email) => {
+    const em = String(email).toLowerCase();
+    if (!sb) { setUsers(prev => prev.filter(u => u.email !== email)); return; }
+    const { error } = await sb.from('admin_notes').delete().eq('email', em);
+    if (error) { showToast(`⚠ 삭제 실패: ${error.message}`); return; }
+    setAdminNotes(prev => { const n = { ...prev }; delete n[em]; return n; });
+  };
+
   // 관리자 페이지에 넘길 회원 목록: Auth 프로필 + (아직 이전 안 된) 옛 회원 + 관리자 메모 병합
   // 비밀번호 해시는 제거하고 넘깁니다.
   const memberList = (() => {
@@ -392,6 +408,7 @@ export function App() {
       const base = byEmail.get(em) || { email: em, name: '' };
       byEmail.set(em, {
         ...base,
+        name: base.name || n.name || '',    // 비회원 직접 등록 항목은 메모의 이름 사용
         phone: n.phone || base.phone || '', // 관리자가 직접 입력한 번호 우선
         memo: n.memo || '', blacklisted: !!n.blacklisted,
         blackReason: n.black_reason || '', blackContact: n.black_contact || '', blackAt: n.black_at || '',
@@ -577,7 +594,7 @@ export function App() {
             : !loaded
               ? <AdminUnavailable/>
               : <AdminPage equipment={equipment} setEquipment={setEquipment} orders={orders} setOrders={setOrders} updateOrderStatus={updateOrderStatus} rentals={rentals} setRentals={setRentals}
-                  users={memberList} onUpdateUser={updateUserInfo} categories={categories} setCategories={setCategories}
+                  users={memberList} onUpdateUser={updateUserInfo} onDeleteUser={deleteUserNote} categories={categories} setCategories={setCategories}
                   shareKey={shareKey} onRegenerateShareKey={regenerateShareKey}
                   homeBanner={homeBanner} setHomeBanner={setHomeBanner}
                   eventBanners={eventBanners} setEventBanners={setEventBanners}

@@ -289,9 +289,9 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
                 제공받거나 열람할 기회를 부여받았으며, 주요 내용을 설명받고 본 계약의 일부로 적용됨에 동의합니다.
                 <span className="block mt-1"><Fill w="130px" def={todayFill} center/></span>
               </div>
-              {/* 동의 서명(날인) 박스 */}
-              <div className="w-[88px] h-[52px] shrink-0 border border-line flex items-center justify-center text-muted/50 text-[11px]">
-                동의합니다
+              {/* 동의 따라쓰기 박스 — 연한 글씨 위에 고객이 직접 따라 씁니다 */}
+              <div className="w-[110px] h-[56px] shrink-0 border border-line flex items-center justify-center">
+                <span className="text-[16px] font-bold tracking-[0.15em] text-ink opacity-[0.13] select-none">동의합니다</span>
               </div>
             </div>
             <div className="px-3 py-2.5 flex flex-wrap items-center justify-center gap-x-10 gap-y-2">

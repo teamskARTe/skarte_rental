@@ -12,7 +12,7 @@ import { youtubeId } from '../content/WorksSection';
 
 export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOrderStatus, rentals, setRentals,
   homeBanner, setHomeBanner, eventBanners, setEventBanners, sets, setSets, bestIds, setBestIds,
-  notices, setNotices, brands, setBrands, discounts, setDiscounts, works, setWorks, users: usersProp, onUpdateUser, categories, setCategories,
+  notices, setNotices, brands, setBrands, discounts, setDiscounts, works, setWorks, users: usersProp, onUpdateUser, onDeleteUser, categories, setCategories,
   shareKey, onRegenerateShareKey, onExit }) {
   const CATEGORIES = categories;
   const scheduleUrl = shareKey ? `${window.location.origin}/schedule?key=${shareKey}` : '';
@@ -228,6 +228,22 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   };
   const saveUserMemo = (u) => onUpdateUser && onUpdateUser(u.email, { memo: uMemo.trim() });
   const saveUserPhone = (u) => onUpdateUser && onUpdateUser(u.email, { phone: uPhone.trim() });
+  // 비회원 블랙리스트 직접 등록 (타 렌탈샵 공유 명단 등 — 회원 가입 여부와 무관)
+  const isManualEntry = (u) => String(u.email || '').endsWith('@blacklist.local');
+  const [manualOpen, setManualOpen] = useState(false);
+  const [mName, setMName] = useState('');
+  const [mPhone, setMPhone] = useState('');
+  const [mReason, setMReason] = useState('');
+  const addManualBlack = () => {
+    if (!mName.trim() && normPhone(mPhone).length < 8) { alert('이름 또는 연락처를 입력해 주세요.'); return; }
+    const em = `manual_${Date.now()}@blacklist.local`;
+    onUpdateUser && onUpdateUser(em, {
+      name: mName.trim(), phone: mPhone.trim(),
+      blacklisted: true, blackReason: mReason.trim(), blackContact: mPhone.trim(),
+      blackAt: new Date().toISOString().slice(0, 10),
+    });
+    setMName(''); setMPhone(''); setMReason(''); // 입력칸 비우고 폼 유지 → 연속 등록
+  };
   const addBlacklist = (u) => {
     if (!confirm(`${u.name || u.email}님을 블랙리스트에 등록할까요?\n(경고 표시용 — 로그인까지 막으려면 "로그인 차단"을 따로 눌러주세요)`)) return;
     onUpdateUser && onUpdateUser(u.email, {
@@ -927,9 +943,37 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                   </button>
                 ))}
               </div>
-              <input value={userQuery} onChange={e => setUserQuery(e.target.value)} placeholder="이름·이메일·메모 검색"
-                className="text-[13px] border border-line focus:border-ink outline-none px-3 py-2 bg-transparent w-full sm:w-64"/>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <input value={userQuery} onChange={e => setUserQuery(e.target.value)} placeholder="이름·번호·이메일·메모 검색"
+                  className="text-[13px] border border-line focus:border-ink outline-none px-3 py-2 bg-transparent flex-1 sm:w-56"/>
+                <button onClick={() => setManualOpen(o => !o)}
+                  className={`text-[13px] px-3 py-2 shrink-0 ${manualOpen ? 'bg-ink text-bg' : 'bg-red-600 text-white hover-lift'}`}>
+                  {manualOpen ? '닫기' : '+ 블랙리스트 직접 등록'}
+                </button>
+              </div>
             </div>
+
+            {/* 비회원 블랙리스트 직접 등록 폼 */}
+            {manualOpen && (
+              <div className="border border-ink bg-[#FAFAFA] p-4 mb-4 fade-in">
+                <div className="text-[12px] font-bold text-ink mb-2">
+                  블랙리스트 직접 등록 <span className="font-normal text-muted">— 회원이 아니어도 등록됩니다 (타 렌탈샵 공유 명단 등)</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input value={mName} onChange={e => setMName(e.target.value)} placeholder="이름"
+                    className="text-[13px] border border-line focus:border-ink outline-none px-3 py-2 bg-bg"/>
+                  <input value={mPhone} onChange={e => setMPhone(e.target.value)} placeholder="연락처 (010-0000-0000)"
+                    className="text-[13px] border border-line focus:border-ink outline-none px-3 py-2 bg-bg font-mono"/>
+                  <input value={mReason} onChange={e => setMReason(e.target.value)} placeholder="사유 (예: ○○렌탈 공유 — 미반납)"
+                    onKeyDown={e => e.key === 'Enter' && addManualBlack()}
+                    className="text-[13px] border border-line focus:border-ink outline-none px-3 py-2 bg-bg"/>
+                </div>
+                <div className="flex items-center justify-between gap-3 mt-2">
+                  <p className="text-[12px] text-muted">등록 즉시 같은 이름·연락처로 들어오는 문의에 ⚠ 경고가 붙습니다. 등록 후 입력칸이 비워지니 여러 명을 이어서 등록하세요.</p>
+                  <button onClick={addManualBlack} className="text-[12px] bg-red-600 text-white px-4 py-2 hover-lift shrink-0">등록</button>
+                </div>
+              </div>
+            )}
             {(() => {
               const q = userQuery.toLowerCase().trim();
               const list = allUsers
@@ -946,6 +990,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                 <div className="border border-line divide-y divide-line">
                   {list.map((u,i) => {
                     const open = openUser === u.email;
+                    const manual = isManualEntry(u);
                     return (
                     <div key={u.email} className={u.blacklisted ? 'bg-[#FFF5F5]' : ''}>
                       <button onClick={() => toggleUserRow(u)}
@@ -963,10 +1008,10 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                               ? <span className="font-mono text-ink/80">{u.phone}</span>
                               : <span className="text-muted/60">전화번호 등록 필요</span>}
                           </span>
-                          <span className="text-[13px] text-muted block truncate">{u.email}</span>
+                          <span className="text-[13px] text-muted block truncate">{manual ? '비회원 (직접 등록)' : u.email}</span>
                         </span>
                         <span className={`text-[11px] px-2 py-1 shrink-0 border ${isAdminUser(u) ? 'border-ink text-ink' : 'border-line text-muted'}`}>
-                          {roleLabel(u)}
+                          {manual ? '비회원' : roleLabel(u)}
                         </span>
                         <span className="font-mono text-[12px] text-muted shrink-0 hidden sm:block">{u.joinedAt}</span>
                         <Ico.plus className={`w-3.5 h-3.5 text-muted shrink-0 transition-transform ${open ? 'rotate-45' : ''}`}/>
@@ -1030,7 +1075,20 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                             <p className="text-[12px] text-muted mt-2">블랙리스트는 경고 표시용입니다 — 같은 성함·연락처로 들어온 문의에 ⚠ 경고가 붙어요. 접속까지 막으려면 아래 로그인 차단을 함께 사용하세요.</p>
                           </div>
 
+                          {/* 비회원 직접 등록 항목: 삭제 가능 (계정 없음 → 로그인 차단 불필요) */}
+                          {manual && (
+                            <div className="border-t border-line pt-3 flex items-center justify-between gap-3">
+                              <span className="text-[13px] text-muted">직접 등록한 항목입니다. 잘못 등록했다면 삭제할 수 있어요.</span>
+                              <button onClick={() => {
+                                  if (!confirm(`'${u.name || '이 항목'}'을(를) 블랙리스트에서 삭제할까요?`)) return;
+                                  onDeleteUser && onDeleteUser(u.email); setOpenUser(null);
+                                }}
+                                className="text-[12px] border border-line hover:border-ink px-3 py-1.5 text-muted hover:text-ink shrink-0">항목 삭제</button>
+                            </div>
+                          )}
+
                           {/* 로그인 차단 (블랙리스트와 별개) */}
+                          {!manual && (
                           <div className="border-t border-line pt-3">
                             <div className="text-[12px] font-bold text-ink mb-1.5">로그인 차단</div>
                             {u.loginBlocked ? (
@@ -1051,6 +1109,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                               </div>
                             )}
                           </div>
+                          )}
                         </div>
                       )}
                     </div>
