@@ -164,6 +164,15 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
     return { rentSum, couponSaved, couponLabel: o.couponLabel || '', extraSaved, extraRate: parseInt(o.extraRate) || 0, rental, vat, total };
   };
 
+  // 상태별 문의 합산 금액 (할인·VAT 반영된 최종 금액 기준)
+  const orderAmount = (o) => o.type === 'extra' ? (o.total || 0) : orderPrice(o).total;
+  const sumByStatus = (...sts) => orders
+    .filter(o => sts.includes(o.status || 'pending'))
+    .reduce((a, o) => a + orderAmount(o), 0);
+  const sumConfirmed = sumByStatus('accepted', 'completed');            // 수락+완료
+  const sumPending   = sumByStatus('pending');                          // 대기
+  const sumActive    = sumByStatus('pending', 'accepted', 'completed'); // 대기+수락+완료
+
   const saveEditOrder = () => {
     if (!oDraft) return;
     const { couponId, ...rest } = oDraft; // couponId는 편집용 임시 필드라 저장하지 않음
@@ -353,7 +362,6 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const resetAll = () => { if (confirm('장비 목록을 기본값으로 초기화할까요? (등록·수정 내역이 사라집니다)')) setEquipment(DEFAULT_EQUIPMENT); };
 
   const totalStock = equipment.reduce((a,e)=>a+e.stock,0);
-  const orderTotal = orders.reduce((a,o)=>a + (o.type==='extra' ? (o.total||0) : orderPrice(o).total), 0);
 
   const tabs = [
     { id:'dash',  label:'대시보드' },
@@ -402,7 +410,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
             { k:'총 장비', v:`${equipment.length}종`, to:'gear', cat:'all' },
             { k:'총 재고', v:`${totalStock}대`, to:'gear', cat:'all' },
             { k:'문의 건수', v:`${orders.length}건`, to:'order' },
-            { k:'문의 합계', v:won(orderTotal), to:'order' },
+            { k:'문의 합계 (수락+완료)', v:won(sumConfirmed), to:'order' },
             { k:'가입 회원', v:`${users.length}명`, to:'user' },
             { k:'세트 상품', v:`${sets.length}종`, to:'set' },
             ...CATEGORIES.map(c => ({ k:c.label, v:`${equipment.filter(e=>e.cat===c.id).length}종`, to:'gear', cat:c.id })),
@@ -608,6 +616,22 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
           <div className="border border-line py-20 text-center text-muted">접수된 문의가 없습니다.</div>
         ) : (
           <div>
+            {/* 상태별 합산 금액 (할인·VAT 반영 최종 금액 기준) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-line border border-line mb-4">
+              <div className="bg-bg p-4">
+                <div className="font-mono text-[11px] uppercase tracking-wider text-muted mb-1">수락+완료 합산</div>
+                <div className="font-display text-xl md:text-2xl font-bold leading-none">{won(sumConfirmed)}</div>
+              </div>
+              <div className="bg-bg p-4">
+                <div className="font-mono text-[11px] uppercase tracking-wider text-muted mb-1">대기 금액</div>
+                <div className="font-display text-xl md:text-2xl leading-none">{won(sumPending)}</div>
+              </div>
+              <div className="bg-bg p-4">
+                <div className="font-mono text-[11px] uppercase tracking-wider text-muted mb-1">대기+수락+완료 합산</div>
+                <div className="font-display text-xl md:text-2xl leading-none">{won(sumActive)}</div>
+              </div>
+            </div>
+
             <div className="flex flex-wrap gap-2 justify-between items-center mb-4">
               <div className="flex gap-1.5">
                 {[['all','전체'],['pending','대기'],['accepted','수락'],['rejected','거절'],['modified','수정'],['completed','완료']].map(([k,label]) => (
