@@ -184,9 +184,14 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
       : rest;
     setOrders(prev => prev.map(o => o.id === next.id ? next : o));
 
-    // 이미 수락된 문의라면 예약 일정(캘린더)도 새 장비 목록·날짜로 다시 만듭니다.
-    if ((next.status || 'pending') === 'accepted' && next.type === 'cart') {
+    // 캘린더에 올라가 있는 문의(수락·완료, 또는 이미 연결된 예약이 있는 경우)는
+    // 예약 일정도 새 장비 목록·날짜로 다시 만듭니다.
+    const st = next.status || 'pending';
+    const hasLinked = rentals.some(r => rentalLinkedTo(r, next));
+    if (next.type === 'cart' && (st === 'accepted' || st === 'completed' || hasLinked)) {
       setRentals(prev => {
+        const linked = prev.filter(r => rentalLinkedTo(r, next));
+        const memo = (linked.find(r => r.memo) || {}).memo || '';
         const others = prev.filter(r => !rentalLinkedTo(r, next));
         if (!next.startDate) return others;
         // 반납일: 가장 긴 항목은 문의의 반납일 그대로, 짧은 항목은 24시간 기준(시작일+일수)
@@ -206,6 +211,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
             endTime: next.returnTime || '',
             pickupBranch: next.pickupBranch || '',
             returnBranch: next.returnBranch || '',
+            memo,
             fromOrder: next.refNo,
             fromOrderId: next.id,
           }));
