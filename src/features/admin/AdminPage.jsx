@@ -101,13 +101,15 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
 
   // ── 캘린더 → 문의 연동 ──
   // 캘린더에서 예약(장비·일수·수량·일정·지점)을 바꾸면, 그 예약과 연결된 문의(fromOrder)도
-  // 같은 내용으로 갱신합니다. 세트 항목은 캘린더에 없으므로 문의에 있던 세트는 그대로 보존합니다.
+  // 같은 내용으로 갱신합니다. 세트도 캘린더에 등록되지만, 예전에 세트 없이 등록된 문의를 위해
+  // 캘린더에 없는 세트 항목은 문의에 그대로 보존합니다.
   const syncOrdersFromRentals = (rentalsArr) => {
     setOrders(prev => prev.map(o => {
       if (o.type !== 'cart' || o.refNo == null) return o;
       const rs = rentalsArr.filter(r => rentalLinkedTo(r, o));
       if (rs.length === 0) return o; // 연결된 캘린더 예약이 없으면 건드리지 않음
-      const setItems = (o.items || []).filter(it => String(it.id).startsWith('set_')); // 세트 보존
+      const setItems = (o.items || []).filter(it => String(it.id).startsWith('set_')
+        && !rs.some(r => r.gearId === it.id)); // 캘린더에 없는 세트만 보존 (중복 방지)
       const gearItems = rs.map(r => {
         const existing = (o.items || []).find(it => it.id === r.gearId);
         const info = pickInfo(r.gearId);
@@ -197,7 +199,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
         // 반납일: 가장 긴 항목은 문의의 반납일 그대로, 짧은 항목은 24시간 기준(시작일+일수)
         const maxDays = (next.items || []).reduce((m, it) => Math.max(m, parseInt(it.days) || 0), 0);
         const rebuilt = (next.items || [])
-          .filter(it => it.id && !String(it.id).startsWith('set_'))
+          .filter(it => it.id)
           .map((it, idx) => ({
             id: `ord${next.id}_${idx}`,
             gearId: it.id,

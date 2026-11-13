@@ -519,8 +519,9 @@ export function App() {
           const d = parseInt(it.days) || 1;
           return (d === maxDays && o.returnDate) ? o.returnDate : addDaysStr(o.startDate, d);
         };
+        // 세트도 캘린더에 '[세트] 이름'으로 등록합니다 (세트만 담긴 문의도 일정에 보이도록)
         const newRentals = o.items
-          .filter(it => it.id && !String(it.id).startsWith('set_'))
+          .filter(it => it.id)
           .map((it, idx) => ({
             // id에 문의 고유 id를 사용 — 접수번호가 중복돼도 예약이 서로 덮이지 않습니다.
             id: `ord${o.id}_${idx}`,
