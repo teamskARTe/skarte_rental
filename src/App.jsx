@@ -68,6 +68,8 @@ export function App() {
   const [cloudFailed, setCloudFailed] = useState(null);   // null | 오류정보 객체
   // 저장 실패 기록 (최근 것부터). 화면에 남겨두고 복사할 수 있게 합니다.
   const [saveErrors, setSaveErrors] = useState([]);
+  // 관리자 서버 로그인(Supabase Auth)이 끊긴 상태 — 화면은 로그인돼 보여도 저장이 거부됩니다.
+  const [authExpired, setAuthExpired] = useState(false);
 
   // 목록형(배열) 키 → 저장 직전에 서버 최신값과 id 기준으로 병합합니다.
   // 두 사람이 각자 장비를 추가·수정해도 서로의 변경이 보존되어, 매번 새로고침할 필요가 없습니다.
@@ -103,13 +105,18 @@ export function App() {
         cloudSnap.current[key] = mergedJson;
         // 병합 결과가 내 화면과 다르면(다른 사람의 변경 포함) 화면에도 반영
         if (mergedJson !== json) setter(merged);
-        store.write(key, merged);
+        // 저장에 실패하면 스냅샷을 되돌려, 재로그인 후 다시 저장할 수 있게 합니다.
+        store.write(key, merged).then(ok => {
+          if (!ok && cloudSnap.current[key] === mergedJson) cloudSnap.current[key] = baseRaw;
+        });
         return;
       }
     }
     // 그 외(단일 객체 등) 또는 병합 불가: 기존처럼 통째로 저장
     cloudSnap.current[key] = json;
-    store.write(key, val);
+    store.write(key, val).then(ok => {
+      if (!ok && cloudSnap.current[key] === json) cloudSnap.current[key] = baseRaw;
+    });
   };
 
   // ── Supabase 클라우드 데이터 초기 로드 (설정 시) ──
@@ -148,7 +155,11 @@ export function App() {
 
   // 저장 실패를 관리자에게 그대로 알립니다 (예전에는 조용히 무시됐습니다).
   useEffect(() => {
-    onWriteError((info) => setSaveErrors(prev => [info, ...prev].slice(0, 5)));
+    onWriteError((info) => {
+      // 42501 = 서버 권한 거부. 관리자 서버 로그인이 끊긴 경우라 재로그인 안내로 대신합니다.
+      if (String(info.code) === '42501') setAuthExpired(true);
+      setSaveErrors(prev => [info, ...prev].slice(0, 5));
+    });
   }, []);
 
   // 관리자 판별: 세션의 role 우선, 없으면 users 목록/ADMIN_EMAIL로 보정(기존 세션 호환)
@@ -156,6 +167,41 @@ export function App() {
     user.role ? isAdminUser(user)
               : isAdminUser(users.find(u => u.email === user.email) || user)
   );
+
+  // ── 관리자 서버 로그인 상태 감시 ──
+  // 화면의 로그인 표시(이 브라우저에 저장)와 서버 로그인(Supabase Auth)은 따로라서,
+  // 서버 쪽만 끊기면 저장할 때마다 권한 오류(42501)가 납니다. 끊긴 것을 미리 감지해 안내합니다.
+  useEffect(() => {
+    if (!sb || !isAdmin) { setAuthExpired(false); return; }
+    let on = true;
+    const check = async () => {
+      try {
+        const { data, error } = await sb.auth.getSession();
+        if (!on) return;
+        if (error && error.name === 'AuthRetryableFetchError') return; // 일시적 네트워크 문제는 무시
+        const em = String(data?.session?.user?.email || '').toLowerCase();
+        setAuthExpired(em !== ADMIN_EMAIL);
+      } catch (e) { /* 확인 실패 시 그대로 둠 */ }
+    };
+    check();
+    const { data: sub } = sb.auth.onAuthStateChange(() => { setTimeout(check, 0); });
+    const onVis = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { on = false; sub?.subscription?.unsubscribe(); document.removeEventListener('visibilitychange', onVis); };
+  }, [isAdmin]);
+
+  // 재로그인 후, 권한 오류로 저장되지 못한 변경을 다시 저장합니다.
+  const latestCloud = useRef({});
+  latestCloud.current = {
+    skeart_orders: orders, skeart_equipment_v2: equipment, skeart_rentals_v2: rentals,
+    skeart_homebanner_v2: homeBanner, skeart_eventbanners_v2: eventBanners, skeart_sets: sets,
+    skeart_bestids: bestIds, skeart_notices: notices, skeart_brands: brands,
+    skeart_discounts: discounts, skeart_works: works, skeart_categories: categories, skeart_users: users,
+  };
+  const resaveAll = () => {
+    if (!loaded) return;
+    Object.entries(latestCloud.current).forEach(([k, v]) => saveCloud(k, v));
+  };
 
   // 공유 캘린더 비밀 키: 관리자가 처음 들어오면 없을 때 자동 생성
   const genShareKey = () => {
@@ -321,7 +367,7 @@ export function App() {
     try {
       const { data: allowed } = await sb.rpc('login_allowed', { p_email: em });
       if (allowed === false) {
-        try { await sb.auth.signOut(); } catch (e) {}
+        try { await sb.auth.signOut({ scope: 'local' }); } catch (e) {}
         return '이용이 제한된 계정입니다. 자세한 내용은 카카오톡 채널로 문의해 주세요.';
       }
     } catch (e) { /* 함수 미설치 시 통과 (설치 전 과도기) */ }
@@ -331,6 +377,12 @@ export function App() {
       role: roleOf({ email: em }), joinedAt: joinedAt || new Date().toISOString().slice(0,10),
     };
     setUser(sess); setAuthOpen(false); showToast(`${sess.name}님, 다시 오셨네요!`);
+    if (isAdminUser(sess)) {
+      // 서버 로그인이 복구됐으니 권한 오류 기록을 지우고, 저장 못 한 변경을 다시 저장
+      setAuthExpired(false);
+      setSaveErrors(prev => prev.filter(e => String(e.code) !== '42501'));
+      setTimeout(resaveAll, 0);
+    }
     return true;
   };
 
@@ -419,8 +471,10 @@ export function App() {
   })();
   const logout = () => {
     setUser(null); setPage('home'); showToast('로그아웃되었습니다.');
-    // 관리자 Supabase Auth 세션도 함께 종료
-    if (sb) { try { sb.auth.signOut(); } catch (e) {} }
+    // Supabase Auth 세션도 함께 종료 — 이 기기만(scope: 'local').
+    // 기본값(global)은 같은 계정으로 로그인한 다른 기기의 세션까지 모두 끊어,
+    // 관리자 계정을 여러 명이 쓰면 한 명이 로그아웃할 때마다 나머지가 저장 오류를 겪습니다.
+    if (sb) { try { sb.auth.signOut({ scope: 'local' }); } catch (e) {} }
   };
 
   // ── 위시리스트 ──
@@ -618,6 +672,14 @@ export function App() {
           <span className="block font-mono text-[11px] text-bg/60 mt-0.5">
             [{cloudFailed.code || 'ERROR'}{cloudFailed.status ? ` ${cloudFailed.status}` : ''}] {cloudFailed.message}
           </span>
+        </div>
+      )}
+
+      {/* 관리자 서버 로그인 만료 안내 — 다시 로그인하면 저장 못 한 변경도 자동으로 다시 저장됩니다. */}
+      {authExpired && isAdmin && (
+        <div className="fixed top-0 inset-x-0 z-[80] bg-red-600 text-white px-4 py-2.5 flex items-center justify-center gap-3 text-[13px]">
+          <span>관리자 로그인이 만료되어 변경 내용이 저장되지 않습니다.</span>
+          <button onClick={() => setAuthOpen(true)} className="shrink-0 bg-white text-red-600 font-bold px-3 py-1">다시 로그인</button>
         </div>
       )}
 
