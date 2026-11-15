@@ -9,6 +9,19 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
   const now = new Date();
   const [cur, setCur] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [adding, setAdding] = useState(false);
+  // 보기 방식: 'bar'(기본 막대) | 'name'(이름만 · 2칸 — 겹친 예약이 많을 때)
+  const [view, setView] = useState(() => { try { return localStorage.getItem('skeart_cal_view') || 'bar'; } catch (e) { return 'bar'; } });
+  const changeView = (v) => { setView(v); try { localStorage.setItem('skeart_cal_view', v); } catch (e) {} };
+  // 전체 화면 (캘린더만 화면 가득)
+  const [full, setFull] = useState(false);
+  useEffect(() => {
+    if (!full) return;
+    const esc = (e) => e.key === 'Escape' && setFull(false);
+    window.addEventListener('keydown', esc);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', esc); document.body.style.overflow = prevOverflow; };
+  }, [full]);
   const [selected, setSelected] = useState(null); // 날짜 상세
 
   const scoped = filterGearId ? rentals.filter(r => r.gearId === filterGearId) : rentals;
@@ -86,7 +99,6 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
   });
 
   // 레인 할당: 같은 예약이 모든 날짜에서 같은 세로 줄에 오도록
-  const LANES_SHOWN = 3;
   const laneOf = useMemo(() => {
     const sorted = [...groups].sort((a,b) => a.start.localeCompare(b.start));
     const laneEnds = []; const map = {};
@@ -99,8 +111,23 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
     return map;
   }, [groups]);
 
+  // 이번 달에 실제로 필요한 레인 수 (이름만 보기에서 전부 표시하기 위해)
+  const monthLanes = useMemo(() => {
+    const ms = new Date(cur.y, cur.m, 1), me = new Date(cur.y, cur.m + 1, 0);
+    let max = -1;
+    groups.forEach(g => {
+      const s = new Date(g.start), e = new Date(rentalEndStr(g));
+      if (s <= me && e >= ms) max = Math.max(max, laneOf[g.key]);
+    });
+    return max + 1;
+  }, [groups, laneOf, cur]);
+  const nameView = view === 'name';
+  // 기본 막대: 3줄까지, 이름만 보기: 이번 달 필요한 만큼(최대 30줄, 2칸 배치)
+  const LANES_SHOWN = nameView ? Math.min(30, Math.max(2, monthLanes + (monthLanes % 2))) : (full ? 6 : 3);
+  const shortName = (n) => { const t = String(n || ''); return t.length > 6 ? t.slice(0, 5) + '…' : t; };
+
   return (
-    <div className="mt-px">
+    <div className={full ? 'fixed inset-0 z-[45] bg-bg overflow-y-auto p-3 md:p-6' : 'mt-px'}>
       {/* 헤더 */}
       <div className="flex flex-wrap items-center justify-between gap-3 border border-line border-b-0 px-4 md:px-6 py-4">
         <div className="flex items-center gap-4">
@@ -115,8 +142,16 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
             <button onClick={goToday} className="ml-1 text-[12px] tracking-tight border border-line hover:border-ink px-3 h-8">오늘</button>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="font-mono text-[12px] text-muted">이번 달 {monthTotal.length}건 예약</span>
+          <div className="inline-flex border border-line">
+            {[['bar', '기본'], ['name', '이름만 (2칸)']].map(([v, label]) => (
+              <button key={v} onClick={() => changeView(v)}
+                className={`text-[12px] px-3 h-8 ${view === v ? 'bg-ink text-bg' : 'hover:bg-[#F4F4F4]'}`}>{label}</button>
+            ))}
+          </div>
+          <button onClick={() => setFull(f => !f)}
+            className="text-[12px] border border-line hover:border-ink px-3 h-8">{full ? '전체 화면 닫기' : '전체 화면'}</button>
           {!readOnly && (
             <button onClick={() => setAdding(true)} className="text-[13px] tracking-tight bg-ink text-bg px-4 py-2 hover-lift inline-flex items-center gap-2">
               <Ico.plus className="w-3.5 h-3.5"/> 일정 추가
@@ -150,12 +185,25 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
             <button key={i} onClick={() => items.length && setSelected({ day, items })}
               className={`border-r border-b border-line min-h-[104px] pt-1.5 pb-1 text-left align-top flex flex-col gap-1 ${items.length ? 'hover:bg-[#F7F7F7] cursor-pointer' : 'cursor-default'}`}>
               <div className={`mx-1.5 font-mono text-[12px] ${isToday ? 'bg-ink text-bg w-5 h-5 flex items-center justify-center rounded-full' : 'text-muted'}`}>{day}</div>
-              <div className="flex flex-col gap-0.5">
+              <div className={nameView ? 'grid grid-cols-2 gap-px' : 'flex flex-col gap-0.5'}>
                 {Array.from({ length: LANES_SHOWN }).map((_, lane) => {
                   const g = byLane[lane];
-                  if (!g) return <div key={lane} className="h-[19px]"/>; // 빈 슬롯(정렬 유지)
+                  if (!g) return <div key={lane} className={nameView ? 'h-[16px]' : 'h-[19px]'}/>; // 빈 슬롯(정렬 유지)
                   const isS = g.start === fmt(day);
                   const isE = rentalEndStr(g) === fmt(day);
+                  if (nameView) {
+                    // 이름만 보기: 매일 이름 표시, 시작일은 왼쪽 굵은 선
+                    return (
+                      <div key={lane}
+                        className={`h-[16px] leading-[16px] text-[10.5px] text-ink/85 overflow-hidden whitespace-nowrap text-ellipsis px-1 ${isS ? 'border-l-2 border-ink font-bold' : ''}`}
+                        style={{ background: colorOf(g.key) }}
+                        title={hideIdentity
+                          ? `예약됨 ×${totalQty(g)} (${g.start} ~ ${rentalEndStr(g)})`
+                          : `${g.renter} · ${g.items.map(x => `${gearName(x.gearId)} ×${x.qty}`).join(', ')} (${g.start} ~ ${rentalEndStr(g)})${g.memo ? ` · ${g.memo}` : ''}`}>
+                        {hideIdentity ? `예약 ×${totalQty(g)}` : shortName(g.renter)}
+                      </div>
+                    );
+                  }
                   const showLabel = isS || weekStart; // 시작일 또는 매주 첫날 라벨 재표시
                   return (
                     <div key={lane}
@@ -168,7 +216,7 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
                     </div>
                   );
                 })}
-                {overflow > 0 && <div className="text-[11px] text-muted px-1.5">+{overflow}건</div>}
+                {overflow > 0 && <div className={`text-[11px] text-muted px-1.5 ${nameView ? 'col-span-2' : ''}`}>+{overflow}건</div>}
               </div>
             </button>
           );
@@ -179,7 +227,9 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
           <span className="text-[12px] text-muted">색칠된 날짜는 예약이 있는 기간입니다. 그 외 날짜는 대여 가능하며, 정확한 가용 수량은 문의 시 안내드립니다.</span>
         ) : (
           <>
-            <span className="text-[12px] text-muted">예약자·대여기간이 같은 장비는 하나의 막대로 묶여 표시됩니다. 날짜를 클릭하면 장비 목록을 볼 수 있어요.</span>
+            <span className="text-[12px] text-muted">{nameView
+              ? '이름만 보기: 예약자 이름만 2칸으로 모두 표시합니다. 굵은 이름이 시작일이며, 날짜를 클릭하면 장비 목록을 볼 수 있어요.'
+              : '예약자·대여기간이 같은 장비는 하나의 막대로 묶여 표시됩니다. 날짜를 클릭하면 장비 목록을 볼 수 있어요.'}</span>
             <span className="inline-flex items-center gap-1.5 text-[12px] text-muted">
               <span className="inline-block w-4 h-3 border-l-2 border-ink" style={{background:RENTAL_COLORS[0]}}/> 시작일
             </span>
