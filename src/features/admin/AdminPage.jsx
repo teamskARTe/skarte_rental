@@ -26,6 +26,9 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const [gearQuery, setGearQuery] = useState('');
   const [orderQuery, setOrderQuery] = useState('');
   const [orderFilter, setOrderFilter] = useState('all');
+  // 문의 정렬: 'recent'(최신 문의순) | 'rental'(렌탈일 가까운 순) — 브라우저에 기억
+  const [orderSort, setOrderSort] = useState(() => { try { return localStorage.getItem('skeart_order_sort') || 'recent'; } catch (e) { return 'recent'; } });
+  const changeOrderSort = (v) => { setOrderSort(v); try { localStorage.setItem('skeart_order_sort', v); } catch (e) {} };
   const [userQuery, setUserQuery] = useState('');
 
   // ── 문의 편집 (장비 목록 · 예약 날짜/시간 · 픽업/반납 지점) ──
@@ -174,6 +177,14 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const sumConfirmed = sumByStatus('accepted', 'completed');            // 수락+완료
   const sumPending   = sumByStatus('pending');                          // 대기
   const sumActive    = sumByStatus('pending', 'accepted', 'completed'); // 대기+수락+완료
+  // 당월 수입: 수락+완료 문의 중 렌탈 시작일이 이번 달인 것 (렌탈일이 없으면 접수일 기준)
+  const nowD = new Date();
+  const thisMonth = `${nowD.getFullYear()}-${String(nowD.getMonth() + 1).padStart(2, '0')}`;
+  const thisMonthLabel = `${nowD.getMonth() + 1}월`;
+  const sumMonth = orders
+    .filter(o => ['accepted', 'completed'].includes(o.status || 'pending'))
+    .filter(o => String(o.startDate || o.date || '').slice(0, 7) === thisMonth)
+    .reduce((a, o) => a + orderAmount(o), 0);
 
   const saveEditOrder = () => {
     if (!oDraft) return;
@@ -418,7 +429,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
             { k:'총 장비', v:`${equipment.length}종`, to:'gear', cat:'all' },
             { k:'총 재고', v:`${totalStock}대`, to:'gear', cat:'all' },
             { k:'문의 건수', v:`${orders.length}건`, to:'order' },
-            { k:'문의 합계 (수락+완료)', v:won(sumConfirmed), to:'order' },
+            { k:`당월 수입 (${thisMonthLabel})`, v:won(sumMonth), to:'order' },
             { k:'가입 회원', v:`${users.length}명`, to:'user' },
             { k:'세트 상품', v:`${sets.length}종`, to:'set' },
             ...CATEGORIES.map(c => ({ k:c.label, v:`${equipment.filter(e=>e.cat===c.id).length}종`, to:'gear', cat:c.id })),
@@ -625,10 +636,14 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
         ) : (
           <div>
             {/* 상태별 합산 금액 (할인·VAT 반영 최종 금액 기준) */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-line border border-line mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-line border border-line mb-4">
               <div className="bg-bg p-4">
-                <div className="font-mono text-[11px] uppercase tracking-wider text-muted mb-1">수락+완료 합산</div>
+                <div className="font-mono text-[11px] uppercase tracking-wider text-muted mb-1">총 수입 (수락+완료)</div>
                 <div className="font-display text-xl md:text-2xl font-bold leading-none">{won(sumConfirmed)}</div>
+              </div>
+              <div className="bg-bg p-4">
+                <div className="font-mono text-[11px] uppercase tracking-wider text-muted mb-1">당월 수입 ({thisMonthLabel} 렌탈)</div>
+                <div className="font-display text-xl md:text-2xl font-bold leading-none">{won(sumMonth)}</div>
               </div>
               <div className="bg-bg p-4">
                 <div className="font-mono text-[11px] uppercase tracking-wider text-muted mb-1">대기 금액</div>
@@ -649,8 +664,16 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                   </button>
                 ))}
               </div>
-              <input value={orderQuery} onChange={e => setOrderQuery(e.target.value)} placeholder="접수번호·장비명 검색"
-                className="text-[13px] border border-line focus:border-ink outline-none px-3 py-2 bg-transparent w-full sm:w-56"/>
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="inline-flex border border-line shrink-0">
+                  {[['recent', '최신 문의순'], ['rental', '렌탈일순']].map(([v, label]) => (
+                    <button key={v} onClick={() => changeOrderSort(v)}
+                      className={`text-[12px] px-3 py-2 ${orderSort === v ? 'bg-ink text-bg' : 'hover:bg-[#F4F4F4]'}`}>{label}</button>
+                  ))}
+                </div>
+                <input value={orderQuery} onChange={e => setOrderQuery(e.target.value)} placeholder="접수번호·장비명 검색"
+                  className="text-[13px] border border-line focus:border-ink outline-none px-3 py-2 bg-transparent flex-1 sm:flex-none sm:w-56"/>
+              </div>
             </div>
             {(() => {
               const q = orderQuery.toLowerCase().replace('#','');
@@ -663,6 +686,18 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                 if (o.gear && o.gear.toLowerCase().includes(q)) return true;
                 return (o.items||[]).some(it => (it.name||'').toLowerCase().includes(q));
               });
+              // 렌탈일순: 오늘 이후 렌탈을 가까운 날부터 → 지난 렌탈은 최근 것부터 → 렌탈일 없는 문의는 맨 뒤
+              if (orderSort === 'rental') {
+                const td = `${thisMonth}-${String(nowD.getDate()).padStart(2, '0')}`;
+                const rank = (o) => !o.startDate ? 2 : (o.startDate >= td ? 0 : 1);
+                list.sort((a, b) => {
+                  const ra = rank(a), rb = rank(b);
+                  if (ra !== rb) return ra - rb;
+                  if (ra === 0) return a.startDate.localeCompare(b.startDate) || String(a.startTime || '').localeCompare(String(b.startTime || ''));
+                  if (ra === 1) return b.startDate.localeCompare(a.startDate);
+                  return 0;
+                });
+              }
               if (list.length === 0) return <div className="border border-line py-16 text-center text-muted text-[14px]">해당하는 문의가 없습니다.</div>;
               const stBadge = (st) => st==='accepted' ? 'bg-ink text-bg'
                 : st==='rejected' ? 'bg-line text-muted line-through'
