@@ -122,6 +122,8 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
     return max + 1;
   }, [groups, laneOf, cur]);
   const nameView = view === 'name';
+  // 픽업·반납만 보기: 대여 시작일(픽업)과 반납일에만 한 줄씩 표시, 중간 대여 기간은 비움
+  const edgeView = view === 'edge';
   // 기본 막대: 3줄까지, 이름만 보기: 이번 달 필요한 만큼(최대 30줄, 2칸 배치)
   const LANES_SHOWN = nameView ? Math.min(30, Math.max(2, monthLanes + (monthLanes % 2))) : (full ? 6 : 3);
   const shortName = (n) => { const t = String(n || ''); return t.length > 6 ? t.slice(0, 5) + '…' : t; };
@@ -145,7 +147,7 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-mono text-[12px] text-muted">이번 달 {monthTotal.length}건 예약</span>
           <div className="inline-flex border border-line">
-            {[['bar', '기본'], ['name', '이름만 (2칸)']].map(([v, label]) => (
+            {[['bar', '기본'], ['name', '이름만 (2칸)'], ['edge', '픽업·반납만']].map(([v, label]) => (
               <button key={v} onClick={() => changeView(v)}
                 className={`text-[12px] px-3 h-8 ${view === v ? 'bg-ink text-bg' : 'hover:bg-[#F4F4F4]'}`}>{label}</button>
             ))}
@@ -174,6 +176,37 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
           const items = onDay(day);
           const isToday = fmt(day) === todayStr;
           const weekStart = (i % 7) === 0; // 일요일 = 줄 시작
+          if (edgeView) {
+            const ds = fmt(day);
+            const pickups = items.filter(g => g.start === ds);
+            const returns = items.filter(g => rentalEndStr(g) === ds);
+            const tip = (g) => hideIdentity
+              ? `예약됨 ×${totalQty(g)} (${g.start} ~ ${rentalEndStr(g)})`
+              : `${g.renter} · ${g.items.map(x => `${gearName(x.gearId)} ×${x.qty}`).join(', ')} (${g.start} ~ ${rentalEndStr(g)})${g.memo ? ` · ${g.memo}` : ''}`;
+            const Line = ({ g, kind }) => {
+              const time = kind === 'pickup' ? g.startTime : g.endTime;
+              return (
+                <div title={tip(g)}
+                  className={`h-[18px] leading-[18px] text-[11px] overflow-hidden whitespace-nowrap text-ellipsis px-1 border-l-2 ${kind === 'pickup' ? 'border-ink text-ink' : 'border-red-500 text-ink/70'}`}
+                  style={{ background: colorOf(g.key) }}>
+                  <span className={`font-bold mr-1 ${kind === 'pickup' ? '' : 'text-red-600'}`}>{kind === 'pickup' ? '렌탈' : '반납'}</span>
+                  {hideIdentity ? `×${totalQty(g)}` : g.renter}
+                  {time && <span className="font-mono text-[10px] text-muted ml-1">{time}</span>}
+                </div>
+              );
+            };
+            const edgeItems = [...new Set([...pickups, ...returns])];
+            return (
+              <button key={i} onClick={() => edgeItems.length && setSelected({ day, items: edgeItems })}
+                className={`border-r border-b border-line min-h-[104px] pt-1.5 pb-1 text-left align-top flex flex-col gap-1 ${edgeItems.length ? 'hover:bg-[#F7F7F7] cursor-pointer' : 'cursor-default'}`}>
+                <div className={`mx-1.5 font-mono text-[12px] ${isToday ? 'bg-ink text-bg w-5 h-5 flex items-center justify-center rounded-full' : 'text-muted'}`}>{day}</div>
+                <div className="flex flex-col gap-px">
+                  {pickups.map(g => <Line key={'p' + g.key} g={g} kind="pickup"/>)}
+                  {returns.map(g => <Line key={'r' + g.key} g={g} kind="return"/>)}
+                </div>
+              </button>
+            );
+          }
           // 레인별 매핑
           const byLane = {};
           let overflow = 0;
@@ -227,7 +260,9 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
           <span className="text-[12px] text-muted">색칠된 날짜는 예약이 있는 기간입니다. 그 외 날짜는 대여 가능하며, 정확한 가용 수량은 문의 시 안내드립니다.</span>
         ) : (
           <>
-            <span className="text-[12px] text-muted">{nameView
+            <span className="text-[12px] text-muted">{edgeView
+              ? '픽업·반납만 보기: 렌탈(픽업)일과 반납일에만 한 줄씩 표시하고, 대여 중인 날은 비워 둡니다. 날짜를 클릭하면 그날 픽업·반납 장비를 볼 수 있어요.'
+              : nameView
               ? '이름만 보기: 예약자 이름만 2칸으로 모두 표시합니다. 굵은 이름이 시작일이며, 날짜를 클릭하면 장비 목록을 볼 수 있어요.'
               : '예약자·대여기간이 같은 장비는 하나의 막대로 묶여 표시됩니다. 날짜를 클릭하면 장비 목록을 볼 수 있어요.'}</span>
             <span className="inline-flex items-center gap-1.5 text-[12px] text-muted">
