@@ -39,7 +39,10 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const startEditOrder = (o) => {
     setEditOrderId(o.id);
     // couponId: 'keep' = 접수 당시 쿠폰 금액 그대로 / 'none' = 미적용 / 할인 id = 다시 계산
-    setODraft({ ...o, items: (o.items || []).map(it => ({ ...it })), couponId: 'keep' });
+    // 추가 할인: %가 없는데 할인 금액만 저장된 문의는 금액 할인으로 불러옵니다.
+    const extraAmt = o.extraAmt != null ? o.extraAmt
+      : (!(parseInt(o.extraRate) > 0) && o.extraSaved > 0 ? o.extraSaved : '');
+    setODraft({ ...o, items: (o.items || []).map(it => ({ ...it })), couponId: 'keep', extraAmt });
     setAddGearId('');
   };
   const cancelEditOrder = () => { setEditOrderId(null); setODraft(null); };
@@ -95,11 +98,13 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
     couponSaved = Math.min(couponSaved, rentSum);
     const afterCoupon = Math.max(0, rentSum - couponSaved);
     // 추가 할인: 쿠폰까지 적용된 할인가에서 관리자 재량으로 −% (10/20/30 등)
-    const extraRate = Math.min(100, Math.max(0, parseInt(oDraft.extraRate) || 0));
-    const extraSaved = Math.round(afterCoupon * extraRate / 100);
+    // 추가 할인: 금액(원)이 입력돼 있으면 금액으로, 아니면 %로 계산 (둘 중 하나만 적용)
+    const extraAmt = Math.max(0, parseInt(oDraft.extraAmt) || 0);
+    const extraRate = extraAmt > 0 ? 0 : Math.min(100, Math.max(0, parseInt(oDraft.extraRate) || 0));
+    const extraSaved = extraAmt > 0 ? Math.min(extraAmt, afterCoupon) : Math.round(afterCoupon * extraRate / 100);
     const rental = afterCoupon - extraSaved;
     const vat = Math.round(rental * 0.10);
-    return { rentSum, couponSaved, couponLabel, extraRate, extraSaved, rental, vat, total: rental + vat };
+    return { rentSum, couponSaved, couponLabel, extraRate, extraAmt, extraSaved, rental, vat, total: rental + vat };
   })();
 
   // ── 캘린더 → 문의 연동 ──
@@ -135,7 +140,9 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
       const afterCoupon = Math.max(0, rentSum - couponSaved);
       // 추가 할인은 %가 저장돼 있으면 새 금액 기준으로 다시 계산합니다.
       const extraRate = parseInt(o.extraRate) || 0;
-      const extraSaved = extraRate > 0 ? Math.round(afterCoupon * extraRate / 100) : Math.min(o.extraSaved || 0, afterCoupon);
+      // 금액 할인은 입력한 금액(extraAmt)을 기준으로, 렌탈료를 넘지 않게 적용합니다.
+      const extraSaved = extraRate > 0 ? Math.round(afterCoupon * extraRate / 100)
+        : Math.min((parseInt(o.extraAmt) || 0) > 0 ? parseInt(o.extraAmt) : (o.extraSaved || 0), afterCoupon);
       const rental = afterCoupon - extraSaved;
       const vat = Math.round(rental * 0.10);
       return { ...o, items,
@@ -192,7 +199,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
     const next = draftTotals
       ? { ...rest,
           couponSaved: draftTotals.couponSaved, couponLabel: draftTotals.couponLabel,
-          extraRate: draftTotals.extraRate, extraSaved: draftTotals.extraSaved,
+          extraRate: draftTotals.extraRate, extraAmt: draftTotals.extraAmt, extraSaved: draftTotals.extraSaved,
           vat: draftTotals.vat, total: draftTotals.total }
       : rest;
     setOrders(prev => prev.map(o => o.id === next.id ? next : o));
@@ -858,11 +865,11 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                               </select>
                             </div>
                             <div>
-                              <div className="text-[12px] font-bold text-ink mb-1.5">추가 할인 <span className="font-normal text-muted">(할인가에서 −%)</span></div>
+                              <div className="text-[12px] font-bold text-ink mb-1.5">추가 할인 <span className="font-normal text-muted">(할인가에서 −% 또는 −원)</span></div>
                               <div className="flex items-center gap-1">
                                 {[0, 10, 20, 30].map(r => (
-                                  <button key={r} onClick={() => patchDraft({ extraRate: r })}
-                                    className={`h-8 px-2.5 text-[12px] font-mono border ${(parseInt(oDraft.extraRate) || 0) === r ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
+                                  <button key={r} onClick={() => patchDraft({ extraRate: r, extraAmt: '' })}
+                                    className={`h-8 px-2.5 text-[12px] font-mono border ${!(parseInt(oDraft.extraAmt) > 0) && (parseInt(oDraft.extraRate) || 0) === r ? 'bg-ink text-bg border-ink' : 'border-line hover:border-ink bg-bg'}`}>
                                     {r === 0 ? '없음' : `-${r}%`}
                                   </button>
                                 ))}
@@ -871,11 +878,25 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                                     const v = e.target.value;
                                     if (v === '') { patchDraft({ extraRate: '' }); return; }
                                     const n = parseInt(v);
-                                    patchDraft({ extraRate: isNaN(n) ? '' : Math.min(100, Math.max(0, n)) });
+                                    patchDraft({ extraRate: isNaN(n) ? '' : Math.min(100, Math.max(0, n)), extraAmt: '' });
                                   }}
                                   placeholder="직접"
                                   className="w-14 h-8 text-[13px] font-mono text-center border border-line focus:border-ink outline-none px-1 bg-bg"/>
                                 <span className="text-[12px] text-muted">%</span>
+                              </div>
+                              {/* 금액 할인: 입력하면 % 할인 대신 이 금액을 뺍니다 */}
+                              <div className="flex items-center gap-1 mt-1.5">
+                                <span className="text-[12px] text-muted">또는 금액</span>
+                                <input type="number" min="0" step="1000" value={oDraft.extraAmt ?? ''}
+                                  onChange={e => {
+                                    const v = e.target.value;
+                                    if (v === '') { patchDraft({ extraAmt: '' }); return; }
+                                    const n = parseInt(v);
+                                    patchDraft(isNaN(n) || n <= 0 ? { extraAmt: '' } : { extraAmt: n, extraRate: 0 });
+                                  }}
+                                  placeholder="예: 20000"
+                                  className="w-28 h-8 text-[13px] font-mono text-right border border-line focus:border-ink outline-none px-2 bg-bg"/>
+                                <span className="text-[12px] text-muted">원</span>
                               </div>
                             </div>
                           </div>
