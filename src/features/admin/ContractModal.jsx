@@ -159,8 +159,10 @@ export function ContractModal({ order, equipment, sets = [], onClose }) {
                 <td className="border border-line px-2 py-[5px]"><Fill w="80%"/></td>
               </tr>
               <tr>
-                <td className="border border-line bg-[#F4F6F9] text-muted px-2 py-[5px]">비상연락처 / 관계</td>
-                <td className="border border-line px-2 py-[5px]"><Fill w="62%"/> / <Fill w="26%"/></td>
+                <td className="border border-line bg-[#F4F6F9] text-muted px-1.5 py-[5px] text-[9.5px] whitespace-nowrap tracking-tight">비상연락처 / 관계</td>
+                <td className="border border-line px-2 py-[5px]">
+                  <div className="flex items-end gap-1 whitespace-nowrap"><Fill w="60%"/><span>/</span><Fill w="30%"/></div>
+                </td>
                 <td className="border border-line bg-[#F4F6F9] text-muted px-2 py-[5px]">이메일</td>
                 <td className="border border-line px-2 py-[5px]"><Fill w="80%"/></td>
               </tr>
