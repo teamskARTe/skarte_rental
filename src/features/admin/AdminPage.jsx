@@ -694,12 +694,12 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                 if (o.gear && o.gear.toLowerCase().includes(q)) return true;
                 return (o.items||[]).some(it => (it.name||'').toLowerCase().includes(q));
               });
-              // 렌탈일순: 전체를 렌탈 시작일 최신순(늦은 날짜가 위)으로 한 방향 정렬.
+              // 렌탈일순: 전체를 렌탈 시작일 날짜순(이른 날짜가 위)으로 한 방향 정렬.
               // 같은 날은 이른 시간부터, 렌탈일 없는 문의는 맨 뒤.
               if (orderSort === 'rental') {
                 list.sort((a, b) => {
                   if (!a.startDate || !b.startDate) return (a.startDate ? 0 : 1) - (b.startDate ? 0 : 1);
-                  return b.startDate.localeCompare(a.startDate)
+                  return a.startDate.localeCompare(b.startDate)
                     || String(a.startTime || '').localeCompare(String(b.startTime || ''));
                 });
               }
