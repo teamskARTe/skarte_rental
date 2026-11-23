@@ -291,6 +291,10 @@ export function RentalCalendar({ rentals, equipment, sets = [], onAdd, onRemove,
                     <div className="min-w-0">
                       <div className="font-display text-lg leading-tight">
                         {hideIdentity ? '예약됨' : g.renter}
+                        {/* 문의에서 온 예약이면 접수번호 표시 */}
+                        {!hideIdentity && [...new Set(g.items.map(x => x.fromOrder).filter(n => n != null))].map(n => (
+                          <span key={n} className="font-mono text-[13px] font-bold text-ink ml-2">#{n}</span>
+                        ))}
                         <span className="font-mono text-[13px] text-muted ml-2">장비 {g.items.length}종 · 총 {totalQty(g)}대</span>
                       </div>
                       <div className="font-mono text-[12px] text-muted mt-0.5">

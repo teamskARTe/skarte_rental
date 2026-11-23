@@ -35,6 +35,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
   const [editOrderId, setEditOrderId] = useState(null);
   const [oDraft, setODraft] = useState(null);
   const [addGearId, setAddGearId] = useState('');
+  const [pickQuery, setPickQuery] = useState(''); // 문의 수정 → 장비 추가 검색어
 
   const startEditOrder = (o) => {
     setEditOrderId(o.id);
@@ -64,7 +65,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
     const g = pickInfo(addGearId);
     if (!g) return;
     setODraft(d => ({ ...d, items: [...(d.items || []), { id: g.id, name: g.name, qty: 1, days: 1, price: g.price }] }));
-    setAddGearId('');
+    setAddGearId(''); setPickQuery('');
   };
 
   // 관리자가 문의에 적용할 수 있는 쿠폰 목록 (활성 할인만)
@@ -693,16 +694,13 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                 if (o.gear && o.gear.toLowerCase().includes(q)) return true;
                 return (o.items||[]).some(it => (it.name||'').toLowerCase().includes(q));
               });
-              // 렌탈일순: 오늘 이후 렌탈을 가까운 날부터 → 지난 렌탈은 최근 것부터 → 렌탈일 없는 문의는 맨 뒤
+              // 렌탈일순: 전체를 렌탈 시작일 최신순(늦은 날짜가 위)으로 한 방향 정렬.
+              // 같은 날은 이른 시간부터, 렌탈일 없는 문의는 맨 뒤.
               if (orderSort === 'rental') {
-                const td = `${thisMonth}-${String(nowD.getDate()).padStart(2, '0')}`;
-                const rank = (o) => !o.startDate ? 2 : (o.startDate >= td ? 0 : 1);
                 list.sort((a, b) => {
-                  const ra = rank(a), rb = rank(b);
-                  if (ra !== rb) return ra - rb;
-                  if (ra === 0) return a.startDate.localeCompare(b.startDate) || String(a.startTime || '').localeCompare(String(b.startTime || ''));
-                  if (ra === 1) return b.startDate.localeCompare(a.startDate);
-                  return 0;
+                  if (!a.startDate || !b.startDate) return (a.startDate ? 0 : 1) - (b.startDate ? 0 : 1);
+                  return b.startDate.localeCompare(a.startDate)
+                    || String(a.startTime || '').localeCompare(String(b.startTime || ''));
                 });
               }
               if (list.length === 0) return <div className="border border-line py-16 text-center text-muted text-[14px]">해당하는 문의가 없습니다.</div>;
@@ -715,11 +713,18 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                 : st==='completed' ? '완료됨' : st==='modified' ? '수정됨' : '대기 중';
               return (
                 <div className="space-y-3">
-                  {list.map(o => {
+                  {list.flatMap((o, idx) => {
+                    // 렌탈일순: 렌탈일 없는 문의가 시작되는 곳에만 구분 제목
+                    let head = null;
+                    if (orderSort === 'rental' && !o.startDate && (idx === 0 || list[idx - 1].startDate)) {
+                      head = (
+                        <div key="sec-nodate" className={`font-mono text-[12px] font-bold text-ink border-b-2 border-ink pb-1 ${idx ? 'pt-4' : ''}`}>렌탈일 없음</div>
+                      );
+                    }
                     const st = o.status || 'pending';
                     // 헤더 금액도 할인 반영된 재계산 값으로 표시
                     const headTotal = o.type === 'extra' ? (o.total || 0) : orderPrice(o).total;
-                    return (
+                    return [head, (
                     <div key={o.id} className={`border p-5 ${st==='pending' ? 'border-ink' : 'border-line'}`}>
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="min-w-0">
@@ -836,15 +841,32 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                                 );
                               })}
                             </div>
-                            <div className="flex gap-1.5">
+                            {(() => {
+                              // 검색어로 장비 목록 좁히기 (대소문자·띄어쓰기 무시). 결과가 있으면 첫 항목을 자동 선택.
+                              const norm = (t) => String(t || '').toLowerCase().replace(/\s+/g, '');
+                              const gq = norm(pickQuery);
+                              const picks = gq ? orderPick.filter(g => norm(g.name).includes(gq)) : orderPick;
+                              return (
+                            <div className="flex flex-wrap gap-1.5">
+                              <input value={pickQuery} placeholder="장비 검색 (예: FX3, 소니)"
+                                onChange={e => {
+                                  const v = e.target.value; setPickQuery(v);
+                                  const q2 = norm(v);
+                                  const first = q2 ? orderPick.find(g => norm(g.name).includes(q2)) : null;
+                                  setAddGearId(first ? first.id : '');
+                                }}
+                                onKeyDown={e => { if (e.key === 'Enter' && addGearId) { e.preventDefault(); addDraftItem(); } }}
+                                className="w-full sm:w-44 text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-bg"/>
                               <select value={addGearId} onChange={e => setAddGearId(e.target.value)}
                                 className="flex-1 min-w-0 text-[13px] border border-line focus:border-ink outline-none px-2 py-1.5 bg-bg">
-                                <option value="">+ 장비·세트 추가…</option>
-                                {orderPick.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                <option value="">{gq ? (picks.length ? `검색 결과 ${picks.length}개` : '검색 결과 없음') : '+ 장비·세트 추가…'}</option>
+                                {picks.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                               </select>
                               <button onClick={addDraftItem} disabled={!addGearId}
                                 className="text-[12px] border border-ink px-3 py-1.5 hover-lift disabled:opacity-40 disabled:cursor-not-allowed shrink-0">추가</button>
                             </div>
+                              );
+                            })()}
                           </div>
 
                           {/* 쿠폰 + 추가 할인 (관리자 재량) */}
@@ -1007,7 +1029,7 @@ export function AdminPage({ equipment, setEquipment, orders, setOrders, updateOr
                         </div>
                       </div>
                     </div>
-                    );
+                    )].filter(Boolean);
                   })}
                 </div>
               );
